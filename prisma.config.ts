@@ -1,12 +1,9 @@
-import { defineConfig } from '@prisma/config'
-import 'dotenv/config'
-
-// Detectamos si el comando actual es una migración
-const isMigration = process.argv.some(arg => arg.includes('migrate') || arg.includes('db'));
+import 'dotenv/config';
+import { defineConfig, env } from 'prisma/config';
 
 export default defineConfig({
+  schema: './prisma/schema.prisma',
   datasource: {
-    // Si es migración usa la DIRECT_URL (puerto 5432), si no, usa el Pooler (puerto 6543)
-    url: isMigration ? process.env.DIRECT_URL : process.env.DATABASE_URL,
+    url: env('DATABASE_URL'),
   },
-})
+});

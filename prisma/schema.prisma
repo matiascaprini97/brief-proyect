@@ -1,0 +1,36 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Modelo de Usuario (Simple: Admin o Cliente/Propietario)
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  name      String
+  role      Role     @default(USER) // Simplificado a USER o ADMIN como sugirió el Senior
+  machines  Machine[] // Relación: Un usuario puede tener muchas camas de Pilates
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+// Modelo para las Camas de Pilates / Reformers
+model Machine {
+  id            String   @id @default(uuid()) // Este UUID será el token único del QR
+  model         String
+  serialNumber  String   @unique
+  warrantyStart DateTime
+  warrantyEnd   DateTime
+  ownerId       String
+  owner         User     @relation(fields: [ownerId], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}

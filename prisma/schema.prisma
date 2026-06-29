@@ -6,31 +6,54 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Modelo de Usuario (Simple: Admin o Cliente/Propietario)
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  role      Role     @default(USER) // Simplificado a USER o ADMIN como sugirió el Senior
-  machines  Machine[] // Relación: Un usuario puede tener muchas camas de Pilates
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 enum Role {
-  USER
   ADMIN
+  CLIENT
 }
 
-// Modelo para las Camas de Pilates / Reformers
-model Machine {
-  id            String   @id @default(uuid()) // Este UUID será el token único del QR
-  model         String
-  serialNumber  String   @unique
-  warrantyStart DateTime
-  warrantyEnd   DateTime
-  ownerId       String
-  owner         User     @relation(fields: [ownerId], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model User {
+  id             String   @id @default(uuid())
+  role           Role     @default(CLIENT)
+  username       String   @unique
+  password       String
+  email          String   @unique
+  firstName      String?  // Opcional (?)
+  lastName       String?  // Opcional (?)
+  phoneNumber    String?  // Opcional (?)
+  profilePicture String?  // Opcional (URL de la foto)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relación: Un usuario puede tener muchas ventas/compras registradas
+  sales          Sale[]
+}
+
+model Product {
+  id         String   @id @default(uuid())
+  brand      String
+  name       String
+  details    String   @db.Text // Para que permita textos largos de descripción
+  photos     String[] // Postgres permite guardar arrays de strings nativos (ideal para URLs de fotos)
+  spareParts String?  // Opcional: Lista de repuestos en texto o detalles
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relación: Un producto puede estar en muchas ventas
+  sales      Sale[]
+}
+
+// La tercera tabla: Vinculación entre el usuario y el producto comprado
+model Sale {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now()) // Fecha de la venta/registro
+
+  // Relaciones explícitas con llaves foráneas (Foreign Keys)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Índice para que las búsquedas de "qué compró este usuario" sean instantáneas
+  @@index([userId])
+  @@index([productId])
 }

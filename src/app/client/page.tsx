@@ -14,25 +14,36 @@ interface Product {
 
 export default function ClientPage() {
     const [products, setProducts] = useState<Product[]>([])
+    const [profilePicture, setProfilePicture] = useState<string | null>(null) // 👈 1. Estado para la foto de perfil
     const [loading, setLoading] = useState<boolean>(true)
     const [openProductId, setOpenProductId] = useState<string | null>(null)
 
-    // Cargamos los datos reales desde nuestra API al montar el componente
+    // Cargamos los productos y la foto real desde nuestra API al montar el componente
     useEffect(() => {
-        async function fetchProducts() {
+        async function fetchInitialData() {
             try {
-                const response = await fetch("/api/client/products")
-                if (response.ok) {
-                    const data = await response.json()
-                    setProducts(data)
+                // 2. Ejecutamos ambas consultas en paralelo para que cargue super rápido
+                const [productsRes, profileRes] = await Promise.all([
+                    fetch("/api/client/products"),
+                    fetch("/api/client/profile") // Enlace a nuestra nueva mini API
+                ])
+
+                if (productsRes.ok) {
+                    const productsData = await productsRes.json()
+                    setProducts(productsData)
+                }
+
+                if (profileRes.ok) {
+                    const profileData = await profileRes.json()
+                    setProfilePicture(profileData.profilePicture) // Guardamos la URL de la foto
                 }
             } catch (error) {
-                console.error("Error conectando a la API de productos:", error)
+                console.error("Error conectando a las APIs del cliente:", error)
             } finally {
                 setLoading(false)
             }
         }
-        fetchProducts()
+        fetchInitialData()
     }, [])
 
     const toggleProduct = (id: string) => {
@@ -44,8 +55,8 @@ export default function ClientPage() {
             className="flex min-h-screen flex-col bg-white text-black antialiased font-sans"
             style={{ scrollbarGutter: "stable" }}>
 
-            {/* 1. NAVBAR REUTILIZABLE */}
-            <Navbar />
+            {/* 3. LE PASAMOS LA FOTO AL NAVBAR */}
+            <Navbar profilePicture={profilePicture} />
 
             {/* CONTENIDO PRINCIPAL */}
             <main className="flex-1 mx-auto w-full max-w-3xl px-6 py-12">
@@ -56,7 +67,7 @@ export default function ClientPage() {
                     <p className="text-sm text-zinc-500">Historial de equipamiento técnico vinculado a tus compras.</p>
                 </div>
 
-                {/* 2. MANEJO DE ESTADOS DE CARGA Y LISTA */}
+                {/* MANEJO DE ESTADOS DE CARGA Y LISTA */}
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 space-y-3">
                         <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-black" />
@@ -91,7 +102,6 @@ export default function ClientPage() {
                                             </h2>
                                         </div>
 
-                                        {/* Flecha indicadora con animación de rotación */}
                                         <svg
                                             xmlns="http://www.w3.org/2000/svg"
                                             fill="none"
@@ -107,14 +117,11 @@ export default function ClientPage() {
                                     {/* Cuerpo Desplegable */}
                                     {isOpen && (
                                         <div className="border-t border-zinc-100 bg-zinc-50/50 p-5 space-y-5 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
-
-                                            {/* Detalles */}
                                             <div className="space-y-1">
                                                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Detalles del Producto</h3>
                                                 <p className="text-zinc-700 leading-relaxed">{product.details}</p>
                                             </div>
 
-                                            {/* Repuestos / Partes */}
                                             {product.spareParts && (
                                                 <div className="space-y-1">
                                                     <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Repuestos & Partes Opcionales</h3>
@@ -122,7 +129,6 @@ export default function ClientPage() {
                                                 </div>
                                             )}
 
-                                            {/* Galería de Fotos */}
                                             <div className="space-y-1.5">
                                                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Galería Visual</h3>
                                                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -131,7 +137,6 @@ export default function ClientPage() {
                                                     </div>
                                                 </div>
                                             </div>
-
                                         </div>
                                     )}
                                 </div>
@@ -141,11 +146,9 @@ export default function ClientPage() {
                 )}
             </main>
 
-            {/* 3. FOOTER MINIMALISTA */}
+            {/* FOOTER MINIMALISTA */}
             <footer className="w-full border-t border-zinc-200 bg-white px-6 py-8 text-xs text-zinc-400">
                 <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-
-                    {/* Lado Izquierdo: Contacto / Redes */}
                     <div className="space-y-1">
                         <p className="font-semibold text-zinc-900 uppercase tracking-wider text-[10px]">Contacto & Redes</p>
                         <div className="flex gap-4">
@@ -153,18 +156,14 @@ export default function ClientPage() {
                             <a href="#" className="hover:text-black transition-colors">WhatsApp Corporativo</a>
                         </div>
                     </div>
-
-                    {/* Lado Derecho: Soporte */}
                     <div className="space-y-1 sm:text-right">
                         <p className="font-semibold text-zinc-900 uppercase tracking-wider text-[10px]">Soporte Técnico</p>
                         <a href="mailto:soporte@brief.com" className="hover:text-black transition-colors underline underline-offset-2">
                             soporte@briefplataforma.com
                         </a>
                     </div>
-
                 </div>
             </footer>
-
         </div>
     )
 }

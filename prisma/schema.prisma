@@ -17,43 +17,59 @@ model User {
   username       String   @unique
   password       String
   email          String   @unique
-  firstName      String?  // Opcional (?)
-  lastName       String?  // Opcional (?)
-  phoneNumber    String?  // Opcional (?)
-  profilePicture String?  // Opcional (URL de la foto)
+  firstName      String?
+  lastName       String?
+  phoneNumber    String?
+  profilePicture String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  // Relación: Un usuario puede tener muchas ventas/compras registradas
   sales          Sale[]
 }
 
 model Product {
-  id         String   @id @default(uuid())
-  brand      String
-  name       String
-  details    String   @db.Text // Para que permita textos largos de descripción
-  photos     String[] // Postgres permite guardar arrays de strings nativos (ideal para URLs de fotos)
-  spareParts String?  // Opcional: Lista de repuestos en texto o detalles
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(uuid())
+  brand          String
+  name           String
+  details        String   @db.Text
+  photos         String[]
+  spareParts     String?  
+  warrantyDays   Int      @default(365) // 👈 NUEVO: Días de garantía (ej: 365 = 1 año, 730 = 2 años)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  // Relación: Un producto puede estar en muchas ventas
-  sales      Sale[]
+  sales          Sale[]
+  trackedAsSpare TrackedSparePart[] 
 }
 
-// La tercera tabla: Vinculación entre el usuario y el producto comprado
 model Sale {
   id        String   @id @default(uuid())
   userId    String
   productId String
-  createdAt DateTime @default(now()) // Fecha de la venta/registro
+  createdAt DateTime @default(now())
 
-  // Relaciones explícitas con llaves foráneas (Foreign Keys)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
 
-  // Índice para que las búsquedas de "qué compró este usuario" sean instantáneas
+  trackedSpareParts TrackedSparePart[]
+
   @@index([userId])
   @@index([productId])
+}
+
+model TrackedSparePart {
+  id             String   @id @default(uuid())
+  saleId         String
+  name           String   
+  spareProductId String?  
+  installedAt    DateTime @default(now()) 
+  lifespanDays   Int      @default(180)   
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  sale           Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  spareProduct   Product? @relation(fields: [spareProductId], references: [id], onDelete: SetNull)
+
+  @@index([saleId])
 }

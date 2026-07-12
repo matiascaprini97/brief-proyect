@@ -3,29 +3,40 @@
 import { useState, useEffect } from "react"
 import Navbar from "@/components/Navbar"
 
-interface Product {
+// === 1. NUEVAS INTERFACES DE TYPESCRIPT (Sincronizadas con Postgres) ===
+interface TrackedSparePart {
     id: string
+    name: string
+    installedAt: string  // ISO String de la fecha
+    lifespanDays: number
+    spareProductId: string | null
+}
+
+interface ProductBought {
+    id: string             // ID del producto
+    saleId: string         // ID de la venta
+    saleCreatedAt: string  // Fecha de la compra (sirve para la garantía)
     brand: string
     name: string
     details: string
     spareParts: string | null
+    warrantyDays: number
     photos: string[]
+    trackedSpareParts: TrackedSparePart[] // Desglose de repuestos bajo seguimiento
 }
 
 export default function ClientPage() {
-    const [products, setProducts] = useState<Product[]>([])
-    const [profilePicture, setProfilePicture] = useState<string | null>(null) // 👈 1. Estado para la foto de perfil
+    const [products, setProducts] = useState<ProductBought[]>([])
+    const [profilePicture, setProfilePicture] = useState<string | null>(null)
     const [loading, setLoading] = useState<boolean>(true)
     const [openProductId, setOpenProductId] = useState<string | null>(null)
 
-    // Cargamos los productos y la foto real desde nuestra API al montar el componente
     useEffect(() => {
         async function fetchInitialData() {
             try {
-                // 2. Ejecutamos ambas consultas en paralelo para que cargue super rápido
                 const [productsRes, profileRes] = await Promise.all([
                     fetch("/api/client/products"),
-                    fetch("/api/client/profile") // Enlace a nuestra nueva mini API
+                    fetch("/api/client/profile")
                 ])
 
                 if (productsRes.ok) {
@@ -35,7 +46,7 @@ export default function ClientPage() {
 
                 if (profileRes.ok) {
                     const profileData = await profileRes.json()
-                    setProfilePicture(profileData.profilePicture) // Guardamos la URL de la foto
+                    setProfilePicture(profileData.profilePicture)
                 }
             } catch (error) {
                 console.error("Error conectando a las APIs del cliente:", error)
@@ -50,18 +61,47 @@ export default function ClientPage() {
         setOpenProductId(openProductId === id ? null : id)
     }
 
+    // === 2. FUNCIONES MATEMÁTICAS DE CÁLCULO TEMPORAL ===
+
+    // Calcula el % restante de vida de un repuesto
+    function calculateLifePercentage(installedAt: string, lifespanDays: number): number {
+        const installationDate = new Date(installedAt)
+        const currentDate = new Date()
+
+        const diffTime = currentDate.getTime() - installationDate.getTime()
+        const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+        const daysRemaining = lifespanDays - daysPassed
+
+        if (daysRemaining <= 0) return 0
+        const percentage = (daysRemaining / lifespanDays) * 100
+        return Math.min(percentage, 100)
+    }
+
+    // Calcula el estado de la garantía basado en la fecha de compra de la Venta
+    function calculateWarranty(saleCreatedAt: string, warrantyDays: number) {
+        const purchaseDate = new Date(saleCreatedAt)
+        const currentDate = new Date()
+
+        const diffTime = currentDate.getTime() - purchaseDate.getTime()
+        const daysPassed = Math.floor(diffTime / (1000 * 60 * 60 * 24))
+        const daysRemaining = warrantyDays - daysPassed
+
+        return {
+            isActive: daysRemaining > 0,
+            daysLeft: Math.max(daysRemaining, 0)
+        }
+    }
+
     return (
         <div
             className="flex min-h-screen flex-col bg-white text-black antialiased font-sans"
             style={{ scrollbarGutter: "stable" }}>
 
-            {/* 3. LE PASAMOS LA FOTO AL NAVBAR */}
             <Navbar profilePicture={profilePicture} />
 
-            {/* CONTENIDO PRINCIPAL */}
             <main className="flex-1 mx-auto w-full max-w-3xl px-6 py-12">
 
-                {/* Encabezado de la página */}
+                {/* Encabezado */}
                 <div className="mb-10 space-y-1">
                     <h1 className="text-2xl font-bold tracking-tighter uppercase">Mis Artículos</h1>
                     <p className="text-sm text-zinc-500">Historial de equipamiento técnico vinculado a tus compras.</p>
@@ -71,7 +111,7 @@ export default function ClientPage() {
                 {loading ? (
                     <div className="flex flex-col items-center justify-center py-20 space-y-3">
                         <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-black" />
-                        <p className="text-xs text-zinc-400 uppercase tracking-wider">Sincronizando con Supabase...</p>
+                        <p className="text-xs text-zinc-400 uppercase tracking-wider">Sincronizando con base de datos...</p>
                     </div>
                 ) : products.length === 0 ? (
                     <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-sm text-zinc-500">
@@ -79,26 +119,27 @@ export default function ClientPage() {
                     </div>
                 ) : (
                     <div className="space-y-3">
-                        {products.map((product) => {
-                            const isOpen = openProductId === product.id
+                        {products.map((item) => {
+                            const isOpen = openProductId === item.id
+                            const warranty = calculateWarranty(item.saleCreatedAt, item.warrantyDays)
 
                             return (
                                 <div
-                                    key={product.id}
+                                    key={item.id}
                                     className="border border-zinc-200 bg-white rounded-xl transition-all duration-200 shadow-sm overflow-hidden"
                                 >
-                                    {/* Cabecera del Producto (Botón para abrir/cerrar) */}
+                                    {/* Cabecera del Producto Card */}
                                     <button
-                                        onClick={() => toggleProduct(product.id)}
+                                        onClick={() => toggleProduct(item.id)}
                                         className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-zinc-50"
                                         aria-expanded={isOpen}
                                     >
                                         <div className="space-y-0.5">
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
-                                                {product.brand}
+                                                {item.brand}
                                             </span>
                                             <h2 className="text-base font-semibold tracking-tight text-zinc-900">
-                                                {product.name}
+                                                {item.name}
                                             </h2>
                                         </div>
 
@@ -114,29 +155,74 @@ export default function ClientPage() {
                                         </svg>
                                     </button>
 
-                                    {/* Cuerpo Desplegable */}
+                                    {/* Cuerpo Desplegable (Detalles Expandidos) */}
                                     {isOpen && (
-                                        <div className="border-t border-zinc-100 bg-zinc-50/50 p-5 space-y-5 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="border-t border-zinc-100 bg-zinc-50/50 p-5 space-y-6 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
+
+                                            {/* Detalles generales */}
                                             <div className="space-y-1">
                                                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Detalles del Producto</h3>
-                                                <p className="text-zinc-700 leading-relaxed">{product.details}</p>
+                                                <p className="text-zinc-700 leading-relaxed">{item.details}</p>
                                             </div>
 
-                                            {product.spareParts && (
+                                            {/* SECCIÓN NUEVA: Estado de la Garantía */}
+                                            <div className="space-y-1.5">
+                                                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Garantía Oficial</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium uppercase select-none ${warranty.isActive
+                                                            ? "bg-green-50 text-green-700 border border-green-200"
+                                                            : "bg-red-50 text-red-700 border border-red-200"
+                                                        }`}>
+                                                        {warranty.isActive ? "Vigente" : "Expirada"}
+                                                    </span>
+                                                    <p className="text-xs text-zinc-600">
+                                                        {warranty.isActive
+                                                            ? `Le quedan ${warranty.daysLeft} días de cobertura.`
+                                                            : "El período de cobertura técnica ha finalizado."}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            {/* SECCIÓN NUEVA: Barras de vida útil de repuestos */}
+                                            <div className="space-y-3">
+                                                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Monitoreo de Componentes</h3>
+
+                                                {item.trackedSpareParts.length === 0 ? (
+                                                    <p className="text-xs text-zinc-400 italic">Este artículo no requiere seguimiento individual de partes.</p>
+                                                ) : (
+                                                    <div className="space-y-4 bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm">
+                                                        {item.trackedSpareParts.map((part) => {
+                                                            const pct = calculateLifePercentage(part.installedAt, part.lifespanDays)
+                                                            return (
+                                                                <div key={part.id} className="space-y-1.5">
+                                                                    <div className="flex justify-between text-xs font-medium">
+                                                                        <span className="text-zinc-800">{part.name}</span>
+                                                                        <span className={pct < 20 ? "text-red-600 font-bold animate-pulse" : "text-zinc-500"}>
+                                                                            {Math.round(pct)}%
+                                                                        </span>
+                                                                    </div>
+                                                                    {/* Barra de progreso */}
+                                                                    <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className={`h-full transition-all duration-500 ${pct < 20 ? "bg-red-500" : "bg-black"
+                                                                                }`}
+                                                                            style={{ width: `${pct}%` }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Repuestos genéricos informativos */}
+                                            {item.spareParts && (
                                                 <div className="space-y-1">
-                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Repuestos & Partes Opcionales</h3>
-                                                    <p className="text-zinc-700 leading-relaxed">{product.spareParts}</p>
+                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Catálogo General de Repuestos</h3>
+                                                    <p className="text-zinc-600 text-xs leading-relaxed">{item.spareParts}</p>
                                                 </div>
                                             )}
-
-                                            <div className="space-y-1.5">
-                                                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Galería Visual</h3>
-                                                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                                                    <div className="flex h-24 items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-100/50 p-4 text-center text-xs text-zinc-400">
-                                                        Imagen del componente
-                                                    </div>
-                                                </div>
-                                            </div>
                                         </div>
                                     )}
                                 </div>
@@ -146,7 +232,6 @@ export default function ClientPage() {
                 )}
             </main>
 
-            {/* FOOTER MINIMALISTA */}
             <footer className="w-full border-t border-zinc-200 bg-white px-6 py-8 text-xs text-zinc-400">
                 <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">

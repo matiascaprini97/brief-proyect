@@ -28,18 +28,23 @@ model User {
 }
 
 model Product {
-  id             String   @id @default(uuid())
-  brand          String
-  name           String
-  details        String   @db.Text
-  photos         String[]
-  spareParts     String?  
-  warrantyDays   Int      @default(365) // 👈 NUEVO: Días de garantía (ej: 365 = 1 año, 730 = 2 años)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id                  String   @id @default(uuid())
+  brand               String
+  name                String
+  details             String   @db.Text
+  photos              String[]
+  spareParts          String?  // Guarda el JSON de repuestos asociados si es un Equipo
+  warrantyDays        Int      @default(365) 
+  
+  // 👈 NUEVOS CAMPOS PARA CLASIFICACIÓN
+  isSpare             Boolean  @default(false)         // Si es true, es un repuesto. Si es false, es un equipo.
+  defaultLifespanDays Int      @default(180)           // Vida útil sugerida por defecto si es repuesto.
+  
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  sales          Sale[]
-  trackedAsSpare TrackedSparePart[] 
+  sales               Sale[]
+  trackedAsSpare      TrackedSparePart[] 
 }
 
 model Sale {

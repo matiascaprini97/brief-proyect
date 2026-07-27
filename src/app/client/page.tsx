@@ -3,7 +3,13 @@
 import { useState, useEffect } from "react"
 import Navbar from "@/components/Navbar"
 
-// === 1. NUEVAS INTERFACES DE TYPESCRIPT (Sincronizadas con Postgres) ===
+// === 1. INTERFACES DE TYPESCRIPT (Sincronizadas con Postgres) ===
+interface GenericSparePart {
+    productId?: string
+    name: string
+    lifespanDays?: number
+}
+
 interface TrackedSparePart {
     id: string
     name: string
@@ -19,7 +25,7 @@ interface ProductBought {
     brand: string
     name: string
     details: string
-    spareParts: string | null
+    spareParts: GenericSparePart[] | string | null // 🟢 Soporta JSON estructurado o string tradicional
     warrantyDays: number
     photos: string[]
     trackedSpareParts: TrackedSparePart[] // Desglose de repuestos bajo seguimiento
@@ -95,12 +101,11 @@ export default function ClientPage() {
     return (
         <div
             className="flex min-h-screen flex-col bg-white text-black antialiased font-sans"
-            style={{ scrollbarGutter: "stable" }}>
-
+            style={{ scrollbarGutter: "stable" }}
+        >
             <Navbar profilePicture={profilePicture} />
 
             <main className="flex-1 mx-auto w-full max-w-3xl px-6 py-12">
-
                 {/* Encabezado */}
                 <div className="mb-10 space-y-1">
                     <h1 className="text-2xl font-bold tracking-tighter uppercase">Mis Artículos</h1>
@@ -159,19 +164,43 @@ export default function ClientPage() {
                                     {isOpen && (
                                         <div className="border-t border-zinc-100 bg-zinc-50/50 p-5 space-y-6 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
 
+                                            {/* Galería de Fotografías */}
+                                            {item.photos && item.photos.length > 0 && (
+                                                <div className="space-y-2">
+                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Fotografías</h3>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {item.photos.map((photoUrl, idx) => (
+                                                            <a
+                                                                key={idx}
+                                                                href={photoUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="block overflow-hidden rounded-lg border border-zinc-200 bg-white transition-opacity hover:opacity-90"
+                                                            >
+                                                                <img
+                                                                    src={photoUrl}
+                                                                    alt={`${item.name} - ${idx + 1}`}
+                                                                    className="h-16 w-16 object-cover"
+                                                                />
+                                                            </a>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )}
+
                                             {/* Detalles generales */}
                                             <div className="space-y-1">
                                                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Detalles del Producto</h3>
                                                 <p className="text-zinc-700 leading-relaxed">{item.details}</p>
                                             </div>
 
-                                            {/* SECCIÓN NUEVA: Estado de la Garantía */}
+                                            {/* Estado de la Garantía */}
                                             <div className="space-y-1.5">
                                                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Garantía Oficial</h3>
                                                 <div className="flex items-center gap-2">
                                                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium uppercase select-none ${warranty.isActive
-                                                            ? "bg-green-50 text-green-700 border border-green-200"
-                                                            : "bg-red-50 text-red-700 border border-red-200"
+                                                        ? "bg-green-50 text-green-700 border border-green-200"
+                                                        : "bg-red-50 text-red-700 border border-red-200"
                                                         }`}>
                                                         {warranty.isActive ? "Vigente" : "Expirada"}
                                                     </span>
@@ -183,11 +212,11 @@ export default function ClientPage() {
                                                 </div>
                                             </div>
 
-                                            {/* SECCIÓN NUEVA: Barras de vida útil de repuestos */}
+                                            {/* Barras de vida útil de repuestos */}
                                             <div className="space-y-3">
                                                 <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Monitoreo de Componentes</h3>
 
-                                                {item.trackedSpareParts.length === 0 ? (
+                                                {(!item.trackedSpareParts || item.trackedSpareParts.length === 0) ? (
                                                     <p className="text-xs text-zinc-400 italic">Este artículo no requiere seguimiento individual de partes.</p>
                                                 ) : (
                                                     <div className="space-y-4 bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm">
@@ -195,12 +224,23 @@ export default function ClientPage() {
                                                             const pct = calculateLifePercentage(part.installedAt, part.lifespanDays)
                                                             return (
                                                                 <div key={part.id} className="space-y-1.5">
-                                                                    <div className="flex justify-between text-xs font-medium">
-                                                                        <span className="text-zinc-800">{part.name}</span>
+                                                                    <div className="flex items-center justify-between text-xs font-medium">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-zinc-800">{part.name}</span>
+                                                                            {part.spareProductId && (
+                                                                                <a
+                                                                                    href={`/store/products/${part.spareProductId}`}
+                                                                                    className="text-[10px] text-zinc-500 hover:text-black underline underline-offset-2 transition-colors"
+                                                                                >
+                                                                                    Comprar repuesto
+                                                                                </a>
+                                                                            )}
+                                                                        </div>
                                                                         <span className={pct < 20 ? "text-red-600 font-bold animate-pulse" : "text-zinc-500"}>
                                                                             {Math.round(pct)}%
                                                                         </span>
                                                                     </div>
+
                                                                     {/* Barra de progreso */}
                                                                     <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
                                                                         <div
@@ -216,11 +256,40 @@ export default function ClientPage() {
                                                 )}
                                             </div>
 
-                                            {/* Repuestos genéricos informativos */}
+                                            {/* Catálogo General de Repuestos */}
                                             {item.spareParts && (
-                                                <div className="space-y-1">
-                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Catálogo General de Repuestos</h3>
-                                                    <p className="text-zinc-600 text-xs leading-relaxed">{item.spareParts}</p>
+                                                <div className="space-y-2">
+                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                                                        Catálogo General de Repuestos
+                                                    </h3>
+
+                                                    {Array.isArray(item.spareParts) ? (
+                                                        <div className="flex flex-wrap gap-2">
+                                                            {item.spareParts.map((part, idx) => (
+                                                                <div
+                                                                    key={part.productId || idx}
+                                                                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-700 shadow-sm"
+                                                                >
+                                                                    <span className="font-medium text-zinc-900">{part.name}</span>
+                                                                    {part.lifespanDays && (
+                                                                        <span className="text-[10px] text-zinc-400">
+                                                                            (~{part.lifespanDays} días de vida)
+                                                                        </span>
+                                                                    )}
+                                                                    {part.productId && (
+                                                                        <a
+                                                                            href={`/store/products/${part.productId}`}
+                                                                            className="ml-1 text-[10px] font-semibold text-black hover:underline"
+                                                                        >
+                                                                            Ver en tienda →
+                                                                        </a>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-xs text-zinc-600 leading-relaxed">{item.spareParts}</p>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>

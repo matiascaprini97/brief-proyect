@@ -7,7 +7,9 @@ export function middleware(request: NextRequest) {
 
     // CASO 1: El usuario TIENE sesión activa
     if (sessionToken) {
-        const [, role] = sessionToken.split(":") // Separamos el ID del Rol
+        // Normalizamos por si el navegador codificó los dos puntos como %3A
+        const cleanToken = sessionToken.replace("%3A", ":")
+        const [, role] = cleanToken.split(":")
 
         // Si intenta ir a la Home ("/"), lo mandamos directo a su panel sin loguear de nuevo
         if (pathname === "/") {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
 
@@ -25,10 +25,17 @@ interface AssociatedSpare {
     lifespanDays: number
 }
 
+type SortField = 'name' | 'isSpare' | 'lifespan'
+type SortOrder = 'asc' | 'desc'
+
 export default function AdminProductosPage() {
     const [profilePicture, setProfilePicture] = useState<string | null>(null)
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
+
+    // Estados para Ordenamiento
+    const [sortField, setSortField] = useState<SortField>('name')
+    const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
 
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -85,6 +92,34 @@ export default function AdminProductosPage() {
             setLoading(false)
         }
     }
+
+    // Lógica de Ordenamiento
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))
+        } else {
+            setSortField(field)
+            setSortOrder('asc')
+        }
+    }
+
+    const sortedProducts = useMemo(() => {
+        return [...products].sort((a, b) => {
+            let comparison = 0
+
+            if (sortField === 'name') {
+                comparison = a.name.localeCompare(b.name)
+            } else if (sortField === 'isSpare') {
+                comparison = Number(a.isSpare) - Number(b.isSpare)
+            } else if (sortField === 'lifespan') {
+                const valA = a.isSpare ? a.defaultLifespanDays : a.warrantyDays
+                const valB = b.isSpare ? b.defaultLifespanDays : b.warrantyDays
+                comparison = valA - valB
+            }
+
+            return sortOrder === 'asc' ? comparison : -comparison
+        })
+    }, [products, sortField, sortOrder])
 
     // UX: Al elegir un repuesto del dropdown, sugerir automáticamente su vida útil por defecto
     const handleSpareSelectChange = (id: string) => {
@@ -264,6 +299,11 @@ export default function AdminProductosPage() {
         }
     }
 
+    const renderSortIndicator = (field: SortField) => {
+        if (sortField !== field) return <span className="opacity-30 text-[9px] ml-1">↕</span>
+        return <span className="text-[10px] ml-1">{sortOrder === 'asc' ? '↑' : '↓'}</span>
+    }
+
     return (
         <div className="flex min-h-screen flex-col bg-white text-black antialiased font-sans">
             <Navbar profilePicture={profilePicture} />
@@ -300,7 +340,7 @@ export default function AdminProductosPage() {
                 <div className="border border-zinc-200 rounded-xl overflow-hidden shadow-sm bg-white">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-zinc-50 border-b border-zinc-200 text-[10px] uppercase tracking-wider font-bold text-zinc-500">
+                            <tr className="bg-zinc-50 border-b border-zinc-200 text-[10px] uppercase tracking-wider font-bold text-zinc-500 select-none">
                                 <th className="p-4 w-12 text-center">
                                     <input
                                         type="checkbox"
@@ -309,9 +349,30 @@ export default function AdminProductosPage() {
                                         onChange={handleSelectAll}
                                     />
                                 </th>
-                                <th className="p-4">Ítem</th>
-                                <th className="p-4">Tipo</th>
-                                <th className="p-4">Repuestos Relacionados / Vida Útil</th>
+                                <th
+                                    className="p-4 cursor-pointer hover:bg-zinc-100/80 transition-colors"
+                                    onClick={() => handleSort('name')}
+                                >
+                                    <div className="flex items-center">
+                                        Ítem {renderSortIndicator('name')}
+                                    </div>
+                                </th>
+                                <th
+                                    className="p-4 cursor-pointer hover:bg-zinc-100/80 transition-colors"
+                                    onClick={() => handleSort('isSpare')}
+                                >
+                                    <div className="flex items-center">
+                                        Tipo {renderSortIndicator('isSpare')}
+                                    </div>
+                                </th>
+                                <th
+                                    className="p-4 cursor-pointer hover:bg-zinc-100/80 transition-colors"
+                                    onClick={() => handleSort('lifespan')}
+                                >
+                                    <div className="flex items-center">
+                                        Repuestos Relacionados / Vida Útil {renderSortIndicator('lifespan')}
+                                    </div>
+                                </th>
                                 <th className="p-4 text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -320,12 +381,12 @@ export default function AdminProductosPage() {
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-zinc-400 text-xs font-medium">Cargando catálogo...</td>
                                 </tr>
-                            ) : products.length === 0 ? (
+                            ) : sortedProducts.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-zinc-400 text-xs font-medium">No hay registros cargados.</td>
                                 </tr>
                             ) : (
-                                products.map((product) => {
+                                sortedProducts.map((product) => {
                                     const mainPhoto = product.photos && product.photos.length > 0 ? product.photos[0] : null;
 
                                     let parsedSpares: AssociatedSpare[] = []
@@ -457,7 +518,7 @@ export default function AdminProductosPage() {
                                 <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                             </div>
 
-                            {/* CAMPOS COMUNES */}
+                            {/* CAMPOS COMUNES Y ESPECÍFICOS */}
                             <div className="space-y-3">
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
@@ -479,150 +540,136 @@ export default function AdminProductosPage() {
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3">
-                                    {/* Si es Repuesto, configuramos su Vida Útil Global */}
                                     {formIsSpare ? (
-                                        <div className="space-y-1 col-span-2">
-                                            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Vida útil estimada de fábrica (Días)</label>
-                                            <input
-                                                type="number" required min="1"
-                                                className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-mono"
-                                                value={formDefaultLifespanDays}
-                                                onChange={(e) => setFormDefaultLifespanDays(parseInt(e.target.value) || 180)}
-                                            />
-                                        </div>
+                                        <>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Vida Útil Base (Días)</label>
+                                                <input
+                                                    type="number" min={1} required
+                                                    className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-medium"
+                                                    value={formDefaultLifespanDays}
+                                                    onChange={(e) => setFormDefaultLifespanDays(Number(e.target.value))}
+                                                />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Garantía (Días)</label>
+                                                <input
+                                                    type="number" min={0} required
+                                                    className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-medium"
+                                                    value={formWarrantyDays}
+                                                    onChange={(e) => setFormWarrantyDays(Number(e.target.value))}
+                                                />
+                                            </div>
+                                        </>
                                     ) : (
-                                        // Si es Equipo, tiene garantía
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Garantía del Equipo (Días)</label>
+                                        <div className="space-y-1 col-span-2">
+                                            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Días de Garantía</label>
                                             <input
-                                                type="number" required min="0"
-                                                className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-mono"
-                                                value={formWarrantyDays}
-                                                onChange={(e) => setFormWarrantyDays(parseInt(e.target.value) || 0)}
-                                            />
-                                        </div>
-                                    )}
-
-                                    {!formIsSpare && (
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Ficha Técnica / Detalles</label>
-                                            <input
-                                                type="text" required
+                                                type="number" min={0} required
                                                 className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-medium"
-                                                value={formDetails} onChange={(e) => setFormDetails(e.target.value)}
-                                                placeholder="Ej: Estructura de madera..."
+                                                value={formWarrantyDays}
+                                                onChange={(e) => setFormWarrantyDays(Number(e.target.value))}
                                             />
                                         </div>
                                     )}
                                 </div>
 
-                                {formIsSpare && (
-                                    <div className="space-y-1">
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Especificaciones Técnicas / Materiales</label>
-                                        <input
-                                            type="text" required
-                                            className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-medium"
-                                            value={formDetails} onChange={(e) => setFormDetails(e.target.value)}
-                                            placeholder="Ej: Acero templado, tensión alta..."
-                                        />
-                                    </div>
-                                )}
+                                <div className="space-y-1">
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Detalles / Descripción</label>
+                                    <textarea
+                                        rows={3}
+                                        className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-medium resize-none"
+                                        placeholder="Especificaciones técnicas, observaciones..."
+                                        value={formDetails}
+                                        onChange={(e) => setFormDetails(e.target.value)}
+                                    />
+                                </div>
 
-                                {/* SECCIÓN DE ASOCIAR REPUESTOS (OCULTA SI ESTAMOS CREANDO UN REPUESTO EN SÍ) */}
+                                {/* SECCIÓN DE REPUESTOS ASOCIADOS (SÓLO SI ES EQUIPO) */}
                                 {!formIsSpare && (
-                                    <div className="border border-zinc-200 rounded-xl p-4 bg-zinc-50/50 space-y-3">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">
-                                            Vincular Repuestos del Catálogo
-                                        </span>
+                                    <div className="border-t border-zinc-100 pt-4 space-y-3">
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-600 block">Repuestos Asociados al Equipo</label>
 
-                                        <div className="flex gap-2 items-end">
-                                            <div className="flex-1 space-y-1">
-                                                <label className="text-[9px] font-bold text-zinc-400 block">Elegir Repuesto Cargado</label>
-                                                <select
-                                                    className="w-full text-xs border border-zinc-200 rounded-lg p-2 bg-white cursor-pointer"
-                                                    value={selectedSpareId}
-                                                    onChange={(e) => handleSpareSelectChange(e.target.value)}
-                                                >
-                                                    <option value="">-- Seleccionar Repuesto --</option>
-                                                    {products
-                                                        // 👈 FILTRO INTELIGENTE: Solo mostramos ítems que sean repuestos
-                                                        .filter(p => p.isSpare === true && p.id !== selectedProduct?.id)
-                                                        .map(p => (
-                                                            <option key={p.id} value={p.id}>
-                                                                {p.name} ({p.brand})
-                                                            </option>
-                                                        ))
-                                                    }
-                                                </select>
-                                            </div>
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                className="flex-1 text-xs border border-zinc-200 rounded-lg p-2.5 outline-none bg-white font-medium"
+                                                value={selectedSpareId}
+                                                onChange={(e) => handleSpareSelectChange(e.target.value)}
+                                            >
+                                                <option value="">-- Seleccionar repuesto --</option>
+                                                {products
+                                                    .filter((p) => p.isSpare && p.id !== selectedProduct?.id)
+                                                    .map((spare) => (
+                                                        <option key={spare.id} value={spare.id}>
+                                                            {spare.name} ({spare.brand})
+                                                        </option>
+                                                    ))}
+                                            </select>
 
-                                            <div className="w-24 space-y-1">
-                                                <label className="text-[9px] font-bold text-zinc-400 block">Vida Útil (Días)</label>
-                                                <input
-                                                    type="number" min="1"
-                                                    className="w-full text-xs border border-zinc-200 rounded-lg p-2 bg-white font-mono"
-                                                    value={spareLifespan}
-                                                    onChange={(e) => setSpareLifespan(parseInt(e.target.value) || 0)}
-                                                />
-                                            </div>
+                                            <input
+                                                type="number" min={1} placeholder="Días vida útil"
+                                                className="w-28 text-xs border border-zinc-200 rounded-lg p-2.5 outline-none font-medium"
+                                                value={spareLifespan}
+                                                onChange={(e) => setSpareLifespan(Number(e.target.value))}
+                                            />
 
                                             <button
-                                                type="button" onClick={handleAddSpareRelation}
-                                                className="bg-zinc-950 text-white text-xs font-bold px-3 py-2 rounded-lg hover:bg-zinc-800 transition-colors h-9"
+                                                type="button"
+                                                onClick={handleAddSpareRelation}
+                                                className="bg-zinc-900 text-white text-xs font-bold px-3 py-2.5 rounded-lg hover:bg-black transition-colors"
                                             >
-                                                Asociar
+                                                + Añadir
                                             </button>
                                         </div>
 
-                                        <div className="space-y-1.5 pt-2 border-t border-zinc-200/60">
-                                            <label className="text-[9px] font-bold text-zinc-400 block">Repuestos Vinculados a esta Máquina</label>
-                                            {associatedSpares.length === 0 ? (
-                                                <p className="text-[11px] text-zinc-400 italic">No hay repuestos asociados.</p>
-                                            ) : (
-                                                <div className="space-y-1 max-h-24 overflow-y-auto">
-                                                    {associatedSpares.map((spare) => (
-                                                        <div key={spare.productId} className="flex items-center justify-between bg-white border border-zinc-200 px-3 py-1 rounded-lg text-xs">
-                                                            <div className="font-medium text-zinc-800">
-                                                                {spare.name} <span className="ml-1 text-[10px] text-zinc-400">({spare.lifespanDays} días)</span>
-                                                            </div>
-                                                            <button
-                                                                type="button" onClick={() => handleRemoveSpareRelation(spare.productId)}
-                                                                className="text-red-500 hover:text-red-700 font-bold text-[11px]"
-                                                            >
-                                                                Quitar
-                                                            </button>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
+                                        {/* LISTA DE CHIPS DE REPUESTOS VINCULADOS */}
+                                        {associatedSpares.length > 0 ? (
+                                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                                {associatedSpares.map((spare) => (
+                                                    <span
+                                                        key={spare.productId}
+                                                        className="inline-flex items-center gap-1.5 bg-zinc-100 text-zinc-800 text-[11px] font-medium px-2.5 py-1 rounded-md border border-zinc-200"
+                                                    >
+                                                        <span>{spare.name}</span>
+                                                        <span className="text-zinc-400 font-mono text-[10px]">({spare.lifespanDays}d)</span>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveSpareRelation(spare.productId)}
+                                                            className="text-zinc-400 hover:text-red-600 font-bold ml-1"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-[11px] text-zinc-400 italic">No se han asociado repuestos aún.</p>
+                                        )}
                                     </div>
                                 )}
                             </div>
 
-                            {/* BOTONES */}
-                            <div className="flex gap-2 pt-2">
+                            {/* BOTONES DE ACCIÓN */}
+                            <div className="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
                                 <button
-                                    type="button" onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 bg-zinc-100 hover:bg-zinc-200 text-black text-xs font-bold py-3 rounded-lg transition-colors uppercase"
+                                    type="button"
+                                    onClick={() => setIsModalOpen(false)}
+                                    className="text-xs font-semibold text-zinc-500 hover:text-black px-4 py-2 rounded-lg transition-colors"
                                 >
                                     Cancelar
                                 </button>
                                 <button
-                                    type="submit" disabled={isSaving}
-                                    className="flex-1 bg-black hover:bg-zinc-800 text-white text-xs font-bold py-3 rounded-lg transition-colors uppercase disabled:bg-zinc-400"
+                                    type="submit"
+                                    disabled={isSaving}
+                                    className="bg-black text-white text-xs font-bold px-5 py-2.5 rounded-lg hover:bg-zinc-800 disabled:opacity-50 transition-colors shadow-sm"
                                 >
-                                    {isSaving ? "Guardando..." : selectedProduct ? "Guardar Cambios" : "Crear"}
+                                    {isSaving ? "Guardando..." : selectedProduct ? "Actualizar Ficha" : "Guardar Ítem"}
                                 </button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
-
-            <footer className="w-full border-t border-zinc-100 bg-white py-4 text-center text-[10px] uppercase tracking-wider text-zinc-400 select-none">
-                Brief Plataforma — Módulo de Inventario
-            </footer>
         </div>
     )
 }

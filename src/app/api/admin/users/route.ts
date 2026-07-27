@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { saveUploadedFile } from "@/lib/upload"
+import { sendWelcomeEmail } from "@/lib/mail"
 
 // GET: Obtener todos los usuarios reales de la DB
 export async function GET() {
@@ -89,6 +90,11 @@ export async function POST(request: Request) {
                 role: true,
             }
         })
+        if (newUser.email) {
+            sendWelcomeEmail(newUser.email, newUser.username, password).catch(err =>
+                console.error("Error al enviar email de bienvenida asíncrono:", err)
+            )
+        }
 
         return NextResponse.json(newUser, { status: 201 })
     } catch (error) {

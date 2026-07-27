@@ -25,6 +25,9 @@ model User {
   updatedAt      DateTime @updatedAt
 
   sales          Sale[]
+
+  resetToken        String?   @unique
+  resetTokenExpiry  DateTime?
 }
 
 model Product {

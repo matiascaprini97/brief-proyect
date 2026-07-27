@@ -1,9 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { updateProfileAction } from "@/app/actions/auth"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+
+// Avatar SVG en Base64 autolimpiable que jamás dará un error 404
+const FALLBACK_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a1a1aa'><rect width='100%25' height='100%25' fill='%23f4f4f5'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>"
 
 interface ProfileFormProps {
     initialData: {
@@ -20,8 +23,18 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
     const [error, setError] = useState<string | null>(null)
     const [success, setSuccess] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [imagePreview, setImagePreview] = useState<string | null>(initialData.profilePicture)
 
-    const router = useRouter() // 👈 2. Inicializamos el hook adentro del componente
+    const fileInputRef = useRef<HTMLInputElement>(null)
+    const router = useRouter()
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (file) {
+            const previewUrl = URL.createObjectURL(file)
+            setImagePreview(previewUrl)
+        }
+    }
 
     async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault()
@@ -37,12 +50,7 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
             setError(result.error || "Ocurrió un error inesperado")
         } else {
             setSuccess(true)
-
-            // 👈 3. ¡LA MAGIA ACÁ!
-            // Avisamos a Next.js que refresque los datos del servidor (por si cambió el nombre en la Navbar)
             router.refresh()
-
-            // Te manda directo al Home ("/")
             router.push("/")
         }
     }
@@ -53,6 +61,39 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
             <p className="text-sm text-zinc-500 mb-6">Actualizá tu información personal y credenciales de acceso.</p>
 
             <form onSubmit={handleSubmit} className="space-y-5">
+
+                {/* AVATAR INTERACTIVO */}
+                <div className="flex flex-col items-center justify-center space-y-2 pb-2">
+                    <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="group relative w-24 h-24 rounded-full overflow-hidden border border-zinc-300 shadow-sm bg-zinc-100 cursor-pointer flex items-center justify-center"
+                    >
+                        <img
+                            src={imagePreview || FALLBACK_AVATAR}
+                            alt="Foto de perfil"
+                            className="w-full h-full object-cover group-hover:opacity-40 transition-opacity"
+                            onError={(e) => {
+                                e.currentTarget.src = FALLBACK_AVATAR
+                            }}
+                        />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 text-white">
+                            <span className="text-[10px] font-bold uppercase tracking-tighter text-center px-1">
+                                Cambiar Foto
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Input nativo de archivo (Oculto) */}
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        name="image"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleFileChange}
+                    />
+                    <p className="text-[11px] text-zinc-400 font-medium">Hacé clic en el avatar para subir una foto desde tu dispositivo</p>
+                </div>
 
                 {/* GRILLA: Nombre y Apellido */}
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -100,28 +141,16 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
                     </div>
                 </div>
 
-                {/* GRILLA: Teléfono y Foto de Perfil */}
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">Teléfono</label>
-                        <input
-                            type="text"
-                            name="phoneNumber"
-                            defaultValue={initialData.phoneNumber || ""}
-                            className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:border-black bg-white"
-                            placeholder="Ej: +54 11 1234-5678"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">URL de Foto de Perfil</label>
-                        <input
-                            type="text"
-                            name="profilePicture"
-                            defaultValue={initialData.profilePicture || ""}
-                            className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:border-black bg-white"
-                            placeholder="https://enlace-a-tu-foto.com/imagen.jpg"
-                        />
-                    </div>
+                {/* TELÉFONO */}
+                <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">Teléfono</label>
+                    <input
+                        type="text"
+                        name="phoneNumber"
+                        defaultValue={initialData.phoneNumber || ""}
+                        className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:border-black bg-white"
+                        placeholder="Ej: +54 11 1234-5678"
+                    />
                 </div>
 
                 <div className="my-6 border-t border-zinc-100" />
@@ -136,7 +165,7 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
                         <input
                             type="password"
                             name="newPassword"
-                            autoComplete="new-password" // 👈 ¡ESTA ES LA MAGIA! Le dice al navegador: "Es una contraseña NUEVA, no me autocompletes la vieja acá"
+                            autoComplete="new-password"
                             className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:border-black bg-white"
                             placeholder="Dejar en blanco para no cambiar"
                         />
@@ -148,7 +177,7 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
                         <input
                             type="password"
                             name="currentPassword"
-                            autoComplete="current-password" // 👈 Por buenas prácticas, acá le avisamos que va la contraseña actual
+                            autoComplete="current-password"
                             className="w-full px-3 py-2 border border-zinc-200 rounded-lg text-sm text-zinc-900 focus:outline-none focus:border-black bg-white"
                             placeholder="Requerido solo si vas a cambiarla"
                         />
@@ -167,8 +196,6 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
                 )}
 
                 <div className="flex justify-end items-center pt-2 gap-2">
-
-                    {/* Botón de Cancelar: más pequeño, gris y a la izquierda */}
                     <Link
                         href="/"
                         className="px-4 py-1.5 border border-zinc-200 hover:bg-zinc-50 text-zinc-500 text-xs font-medium rounded-lg transition-colors active:scale-95"
@@ -176,7 +203,6 @@ export default function ProfileForm({ initialData }: ProfileFormProps) {
                         Cancelar
                     </Link>
 
-                    {/* Tu botón de Guardar Cambios de siempre */}
                     <button
                         type="submit"
                         disabled={loading}

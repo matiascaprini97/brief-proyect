@@ -1,10 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
 
-// Avatar SVG en Base64 autolimpiable que jamás dará un error 404
 const FALLBACK_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a1a1aa'><rect width='100%25' height='100%25' fill='%23f4f4f5'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>"
 
 interface User {
@@ -19,6 +18,9 @@ interface User {
     createdAt: string
 }
 
+type SortField = "name" | "email" | "role" | "createdAt"
+type SortDirection = "asc" | "desc"
+
 export default function AdminUsuariosPage() {
     const [profilePicture, setProfilePicture] = useState<string | null>(null)
     const [users, setUsers] = useState<User[]>([])
@@ -26,7 +28,11 @@ export default function AdminUsuariosPage() {
 
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [isModalOpen, setIsModalOpen] = useState(false)
-    const [selectedUser, setSelectedUser] = useState<User | null>(null) // null = Crear, User = Editar
+    const [selectedUser, setSelectedUser] = useState<User | null>(null)
+
+    // Estado de ordenamiento
+    const [sortField, setSortField] = useState<SortField>("createdAt")
+    const [sortDirection, setSortDirection] = useState<SortDirection>("desc")
 
     // Formulario
     const [formUsername, setFormUsername] = useState("")
@@ -73,6 +79,41 @@ export default function AdminUsuariosPage() {
             setLoading(false)
         }
     }
+
+    // Lógica de ordenamiento
+    const handleSort = (field: SortField) => {
+        if (sortField === field) {
+            setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
+        } else {
+            setSortField(field)
+            setSortDirection("asc")
+        }
+    }
+
+    const sortedUsers = useMemo(() => {
+        return [...users].sort((a, b) => {
+            let aVal = ""
+            let bVal = ""
+
+            if (sortField === "name") {
+                aVal = [a.firstName, a.lastName].filter(Boolean).join(" ") || `@${a.username}`
+                bVal = [b.firstName, b.lastName].filter(Boolean).join(" ") || `@${b.username}`
+            } else if (sortField === "email") {
+                aVal = a.email
+                bVal = b.email
+            } else if (sortField === "role") {
+                aVal = a.role
+                bVal = b.role
+            } else if (sortField === "createdAt") {
+                const dateA = new Date(a.createdAt).getTime()
+                const dateB = new Date(b.createdAt).getTime()
+                return sortDirection === "asc" ? dateA - dateB : dateB - dateA
+            }
+
+            const comp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" })
+            return sortDirection === "asc" ? comp : -comp
+        })
+    }, [users, sortField, sortDirection])
 
     const handleSelectAll = () => {
         if (selectedIds.length === users.length) {
@@ -168,7 +209,7 @@ export default function AdminUsuariosPage() {
                 formData.append("image", formFile)
             }
 
-            let res;
+            let res
             if (selectedUser) {
                 res = await fetch(`/api/admin/users/${selectedUser.id}`, {
                     method: "PUT",
@@ -187,7 +228,6 @@ export default function AdminUsuariosPage() {
                 setSelectedUser(null)
                 fetchUsers()
             } else {
-                // Validación para evitar caídas si la respuesta no es un JSON estructurado
                 let errorMsg = "Error inesperado del servidor."
                 try {
                     const contentType = res.headers.get("content-type")
@@ -209,6 +249,24 @@ export default function AdminUsuariosPage() {
         } finally {
             setIsSaving(false)
         }
+    }
+
+    // Componente helper para dibujar encabezados ordenables
+    const renderSortableHeader = (label: string, field: SortField, className = "") => {
+        const isActive = sortField === field
+        return (
+            <th
+                onClick={() => handleSort(field)}
+                className={`p-4 cursor-pointer select-none transition-colors hover:text-black hover:bg-zinc-100/60 ${className}`}
+            >
+                <div className="flex items-center gap-1.5">
+                    <span>{label}</span>
+                    <span className="text-[11px] text-zinc-400">
+                        {isActive ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}
+                    </span>
+                </div>
+            </th>
+        )
     }
 
     return (
@@ -255,9 +313,9 @@ export default function AdminUsuariosPage() {
                                         onChange={handleSelectAll}
                                     />
                                 </th>
-                                <th className="p-4">Nombre / Empresa</th>
-                                <th className="p-4">Email</th>
-                                <th className="p-4">Rol</th>
+                                {renderSortableHeader("Nombre / Empresa", "name")}
+                                {renderSortableHeader("Email", "email")}
+                                {renderSortableHeader("Rol", "role")}
                                 <th className="p-4 text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -268,14 +326,14 @@ export default function AdminUsuariosPage() {
                                         Cargando base de datos de usuarios...
                                     </td>
                                 </tr>
-                            ) : users.length === 0 ? (
+                            ) : sortedUsers.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-8 text-center text-zinc-400 text-xs font-medium">
                                         No hay usuarios registrados en el sistema.
                                     </td>
                                 </tr>
                             ) : (
-                                users.map((user) => {
+                                sortedUsers.map((user) => {
                                     const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ")
                                     const displayName = fullName || `@${user.username}`
 
@@ -310,8 +368,7 @@ export default function AdminUsuariosPage() {
                                             </td>
                                             <td className="p-4 text-zinc-600 font-mono text-xs">{user.email}</td>
                                             <td className="p-4">
-                                                <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-800"
-                                                    }`}>
+                                                <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-800"}`}>
                                                     {user.role}
                                                 </span>
                                             </td>
@@ -349,7 +406,6 @@ export default function AdminUsuariosPage() {
                         </div>
 
                         <form onSubmit={handleSaveChanges} className="space-y-5">
-                            {/* AVATAR INTERACTIVO */}
                             <div className="flex flex-col items-center justify-center space-y-2">
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
@@ -377,7 +433,6 @@ export default function AdminUsuariosPage() {
                                 <p className="text-[10px] text-zinc-400 uppercase tracking-wide">Clic en el avatar para cambiar</p>
                             </div>
 
-                            {/* CAMPOS DEL FORMULARIO */}
                             <div className="space-y-3">
                                 <div className="space-y-1">
                                     <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Nombre de Usuario (@)</label>
@@ -391,7 +446,6 @@ export default function AdminUsuariosPage() {
                                     />
                                 </div>
 
-                                {/* CONTRASEÑA (Sólo visible en creación) */}
                                 {!selectedUser && (
                                     <div className="space-y-1">
                                         <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Contraseña</label>

@@ -58,57 +58,79 @@ export default function Home() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center bg-zinc-50 px-4 text-black antialiased overflow-hidden">
+    <main className="relative flex min-h-screen items-center justify-center bg-neutral-950 px-4 text-white antialiased overflow-hidden select-none">
 
-      {/* SIMULACIÓN DE LA HOME INTERNA (DIFUMINADA PERO RECONOCIBLE) */}
-      <div className="absolute inset-0 flex flex-col p-6 md:p-12 filter blur-md opacity-100 select-none pointer-events-none">
+      {/* FONDO DIFUMINADO CLARO Y VISIBLE */}
+      <div
+        className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat filter blur-lg scale-105 opacity-55 pointer-events-none"
+        style={{ backgroundImage: "url('/uploads/Wallpaper.jpeg')" }}
+      />
+      <div className="fixed inset-0 -z-10 bg-gradient-to-b from-black/60 via-black/40 to-black/70 pointer-events-none" />
+
+      <div className="absolute inset-0 flex flex-col p-6 md:p-12 filter blur-md opacity-40 select-none pointer-events-none">
         {/* Navbar Fantasma */}
-        <div className="flex items-center justify-between border-b-2 border-zinc-200 pb-5 w-full">
-          <div className="h-6 w-28 bg-zinc-300 rounded-md" />
-          <div className="flex gap-6">
-            <div className="h-4 w-16 bg-zinc-300 rounded" />
-            <div className="h-4 w-20 bg-zinc-300 rounded" />
-            <div className="h-4 w-16 bg-zinc-300 rounded" />
+        <div className="flex items-center justify-between border-b border-white/15 pb-5 w-full">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 bg-white/10 rounded-xl" />
+            <div className="h-5 w-36 bg-white/10 rounded-lg" />
           </div>
-          <div className="h-9 w-9 bg-zinc-300 rounded-full" />
+          <div className="hidden md:flex gap-6">
+            <div className="h-4 w-16 bg-white/10 rounded" />
+            <div className="h-4 w-20 bg-white/10 rounded" />
+            <div className="h-4 w-16 bg-white/10 rounded" />
+          </div>
+          <div className="h-9 w-9 bg-white/10 rounded-full" />
         </div>
 
-        {/* Título Principal */}
+        {/* Título Principal Fantasma */}
         <div className="mt-12 space-y-3 max-w-xl">
-          <div className="h-9 w-3/4 bg-zinc-300 rounded-lg" />
-          <div className="h-4 w-1/2 bg-zinc-200 rounded-md" />
+          <div className="h-9 w-3/4 bg-white/15 rounded-xl" />
+          <div className="h-4 w-1/2 bg-white/10 rounded-md" />
         </div>
 
-        {/* Grilla de Muestra */}
+        {/* Grilla de Muestra Fantasma */}
         <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 w-full flex-1">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="border-2 border-zinc-200 p-5 rounded-xl space-y-4 bg-zinc-100 shadow-sm">
-              <div className="h-40 w-full bg-zinc-200 rounded-lg" />
+            <div key={i} className="border border-white/10 p-5 rounded-2xl space-y-4 bg-white/5 shadow-sm">
+              <div className="h-40 w-full bg-white/10 rounded-xl" />
               <div className="space-y-2.5">
-                <div className="h-5 w-2/3 bg-zinc-300 rounded" />
-                <div className="h-3 w-full bg-zinc-200 rounded" />
-                <div className="h-3 w-5/6 bg-zinc-200 rounded" />
+                <div className="h-5 w-2/3 bg-white/15 rounded" />
+                <div className="h-3 w-full bg-white/10 rounded" />
+                <div className="h-3 w-5/6 bg-white/10 rounded" />
               </div>
-              <div className="h-9 w-24 bg-zinc-400 rounded-lg" />
+              <div className="h-9 w-24 bg-fuchsia-500/20 rounded-xl" />
             </div>
           ))}
         </div>
       </div>
 
       {/* MODAL PRINCIPAL (FLOTANTE Y NÍTIDO) */}
-      <div className="w-full max-w-md border border-zinc-200/80 bg-white/90 p-8 shadow-2xl backdrop-blur-xl rounded-2xl z-10 transition-all">
+      <div className="w-full max-w-md border border-white/20 bg-black/40 p-8 shadow-2xl backdrop-blur-2xl rounded-3xl z-10 transition-all">
 
         {view === "login" ? (
           /* ================= VISTA: LOGIN ================= */
           <>
-            <div className="mb-8 space-y-2 text-center">
-              <h1 className="text-xl font-bold tracking-tighter uppercase">Acceso Privado</h1>
-              <p className="text-sm text-zinc-500">Ingresá las credenciales vinculadas a tu compra</p>
+            <div className="mb-8 text-center space-y-3">
+              <div className="flex justify-center">
+                <img
+                  src="/uploads/BLACK.jpeg"
+                  alt="PHIIT Equipments"
+                  className="h-12 w-12 rounded-xl object-cover border border-white/20 shadow-md"
+                />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-white uppercase">
+                  ACCESO <span className="text-fuchsia-500 italic">PRIVADO</span>
+                </h1>
+                <p className="text-xs text-zinc-300 font-medium mt-1">
+                  Ingresá las credenciales vinculadas a tu cuenta PHIIT
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleLoginSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label htmlFor="username" className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                <label htmlFor="username" className="text-xs font-black uppercase tracking-widest text-zinc-300 block">
                   Usuario
                 </label>
                 <input
@@ -117,12 +139,12 @@ export default function Home() {
                   type="text"
                   required
                   placeholder="Tu nombre de usuario"
-                  className="w-full border border-zinc-200 bg-white px-3 py-2.5 text-sm transition-all placeholder:text-zinc-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black rounded-xl"
+                  className="w-full border border-white/20 bg-black/50 px-4 py-3 text-sm text-white transition-all placeholder:text-zinc-500 focus:border-fuchsia-500 focus:outline-none focus:ring-1 focus:ring-fuchsia-500 rounded-xl"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                <label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-zinc-300 block">
                   Contraseña
                 </label>
                 <input
@@ -131,12 +153,12 @@ export default function Home() {
                   type="password"
                   required
                   placeholder="••••••••"
-                  className="w-full border border-zinc-200 bg-white px-3 py-2.5 text-sm transition-all placeholder:text-zinc-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black rounded-xl"
+                  className="w-full border border-white/20 bg-black/50 px-4 py-3 text-sm text-white transition-all placeholder:text-zinc-500 focus:border-fuchsia-500 focus:outline-none focus:ring-1 focus:ring-fuchsia-500 rounded-xl"
                 />
               </div>
 
               {error && (
-                <div className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-xl">
+                <div className="text-xs font-bold text-red-300 bg-red-500/20 border border-red-500/40 px-4 py-3 rounded-xl">
                   {error}
                 </div>
               )}
@@ -144,7 +166,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={isPending}
-                className="w-full bg-black py-2.5 text-sm font-medium text-white transition-all hover:bg-zinc-900 active:scale-[0.99] disabled:bg-zinc-300 rounded-xl shadow-sm"
+                className="w-full bg-fuchsia-600 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-fuchsia-500 active:scale-[0.98] disabled:bg-zinc-600 rounded-xl shadow-lg cursor-pointer"
               >
                 {isPending ? "Verificando..." : "Ingresar"}
               </button>
@@ -156,7 +178,7 @@ export default function Home() {
                   setError(null)
                   setView("forgot")
                 }}
-                className="text-xs text-zinc-400 underline underline-offset-4 hover:text-black transition-colors"
+                className="text-xs font-medium text-zinc-400 underline underline-offset-4 hover:text-fuchsia-400 transition-colors cursor-pointer"
               >
                 ¿Olvidaste tu contraseña? Recuperar acceso
               </button>
@@ -165,16 +187,27 @@ export default function Home() {
         ) : (
           /* ================= VISTA: RECUPERAR CONTRASEÑA ================= */
           <>
-            <div className="mb-6 space-y-2 text-center">
-              <h1 className="text-xl font-bold tracking-tighter uppercase">Recuperar Acceso</h1>
-              <p className="text-sm text-zinc-500">
-                Ingresá tu correo electrónico y te enviaremos un enlace para restablecer tu clave.
-              </p>
+            <div className="mb-8 text-center space-y-3">
+              <div className="flex justify-center">
+                <img
+                  src="/uploads/BLACK.jpeg"
+                  alt="PHIIT Equipments"
+                  className="h-12 w-12 rounded-xl object-cover border border-white/20 shadow-md"
+                />
+              </div>
+              <div>
+                <h1 className="text-2xl font-black tracking-tight text-white uppercase">
+                  RECUPERAR <span className="text-fuchsia-500 italic">ACCESO</span>
+                </h1>
+                <p className="text-xs text-zinc-300 font-medium mt-1">
+                  Ingresá tu correo y te enviaremos un enlace para restablecer tu clave.
+                </p>
+              </div>
             </div>
 
             <form onSubmit={handleForgotSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label htmlFor="resetEmail" className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                <label htmlFor="resetEmail" className="text-xs font-black uppercase tracking-widest text-zinc-300 block">
                   Correo Electrónico
                 </label>
                 <input
@@ -183,18 +216,18 @@ export default function Home() {
                   type="email"
                   required
                   placeholder="tu@email.com"
-                  className="w-full border border-zinc-200 bg-white px-3 py-2.5 text-sm transition-all placeholder:text-zinc-400 focus:border-black focus:outline-none focus:ring-1 focus:ring-black rounded-xl"
+                  className="w-full border border-white/20 bg-black/50 px-4 py-3 text-sm text-white transition-all placeholder:text-zinc-500 focus:border-fuchsia-500 focus:outline-none focus:ring-1 focus:ring-fuchsia-500 rounded-xl"
                 />
               </div>
 
               {error && (
-                <div className="text-xs font-medium text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-xl">
+                <div className="text-xs font-bold text-red-300 bg-red-500/20 border border-red-500/40 px-4 py-3 rounded-xl">
                   {error}
                 </div>
               )}
 
               {successMessage && (
-                <div className="text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-xl">
+                <div className="text-xs font-bold text-emerald-300 bg-emerald-500/20 border border-emerald-500/40 px-4 py-3 rounded-xl">
                   {successMessage}
                 </div>
               )}
@@ -202,7 +235,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={isPending}
-                className="w-full bg-black py-2.5 text-sm font-medium text-white transition-all hover:bg-zinc-900 active:scale-[0.99] disabled:bg-zinc-300 rounded-xl shadow-sm"
+                className="w-full bg-fuchsia-600 py-3 text-xs font-black uppercase tracking-widest text-white transition-all hover:bg-fuchsia-500 active:scale-[0.98] disabled:bg-zinc-600 rounded-xl shadow-lg cursor-pointer"
               >
                 {isPending ? "Enviando..." : "Enviar Enlace"}
               </button>
@@ -215,7 +248,7 @@ export default function Home() {
                   setSuccessMessage(null)
                   setView("login")
                 }}
-                className="text-xs text-zinc-500 font-medium hover:text-black transition-colors"
+                className="text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
               >
                 ← Volver al inicio de sesión
               </button>

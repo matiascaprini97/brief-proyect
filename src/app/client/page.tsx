@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import Navbar from "@/components/Navbar"
 
-// === 1. INTERFACES DE TYPESCRIPT (Sincronizadas con Postgres) ===
+// === 1. INTERFACES DE TYPESCRIPT ===
 interface GenericSparePart {
     productId?: string
     name: string
@@ -13,22 +13,22 @@ interface GenericSparePart {
 interface TrackedSparePart {
     id: string
     name: string
-    installedAt: string  // ISO String de la fecha
+    installedAt: string
     lifespanDays: number
     spareProductId: string | null
 }
 
 interface ProductBought {
-    id: string             // ID del producto
-    saleId: string         // ID de la venta
-    saleCreatedAt: string  // Fecha de la compra (sirve para la garantía)
+    id: string
+    saleId: string
+    saleCreatedAt: string
     brand: string
     name: string
     details: string
-    spareParts: GenericSparePart[] | string | null // 🟢 Soporta JSON estructurado o string tradicional
+    spareParts: GenericSparePart[] | string | null
     warrantyDays: number
     photos: string[]
-    trackedSpareParts: TrackedSparePart[] // Desglose de repuestos bajo seguimiento
+    trackedSpareParts: TrackedSparePart[]
 }
 
 export default function ClientPage() {
@@ -67,9 +67,6 @@ export default function ClientPage() {
         setOpenProductId(openProductId === id ? null : id)
     }
 
-    // === 2. FUNCIONES MATEMÁTICAS DE CÁLCULO TEMPORAL ===
-
-    // Calcula el % restante de vida de un repuesto
     function calculateLifePercentage(installedAt: string, lifespanDays: number): number {
         const installationDate = new Date(installedAt)
         const currentDate = new Date()
@@ -83,7 +80,6 @@ export default function ClientPage() {
         return Math.min(percentage, 100)
     }
 
-    // Calcula el estado de la garantía basado en la fecha de compra de la Venta
     function calculateWarranty(saleCreatedAt: string, warrantyDays: number) {
         const purchaseDate = new Date(saleCreatedAt)
         const currentDate = new Date()
@@ -100,30 +96,42 @@ export default function ClientPage() {
 
     return (
         <div
-            className="flex min-h-screen flex-col bg-white text-black antialiased font-sans"
+            className="relative flex min-h-screen flex-col text-white antialiased font-sans select-none"
             style={{ scrollbarGutter: "stable" }}
         >
+            {/* FONDO DIFUMINADO CLARO Y VISIBLE */}
+            <div
+                className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat filter blur-lg scale-105 opacity-55 pointer-events-none"
+                style={{ backgroundImage: "url('/uploads/Wallpaper.jpeg')" }}
+            />
+            {/* Capa de contraste semi-transparente (no oscurece de más) */}
+            <div className="fixed inset-0 -z-10 bg-gradient-to-b from-black/60 via-black/40 to-black/70 pointer-events-none" />
+
             <Navbar profilePicture={profilePicture} />
 
-            <main className="flex-1 mx-auto w-full max-w-3xl px-6 py-12">
-                {/* Encabezado */}
-                <div className="mb-10 space-y-1">
-                    <h1 className="text-2xl font-bold tracking-tighter uppercase">Mis Artículos</h1>
-                    <p className="text-sm text-zinc-500">Historial de equipamiento técnico vinculado a tus compras.</p>
+            <main className="flex-1 mx-auto w-full max-w-4xl px-6 py-12 relative z-10">
+                {/* Encabezado con estilo de tipografía PHIIT */}
+                <div className="mb-12 space-y-2">
+                    <h1 className="text-4xl sm:text-5xl font-black tracking-tight uppercase leading-none text-white">
+                        MIS <span className="text-fuchsia-500 italic">ARTÍCULOS</span>
+                    </h1>
+                    <p className="text-base font-medium text-zinc-300">
+                        Historial de equipamiento técnico vinculado a tus compras en PHIIT Equipments.
+                    </p>
                 </div>
 
                 {/* MANEJO DE ESTADOS DE CARGA Y LISTA */}
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 space-y-3">
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-zinc-300 border-t-black" />
-                        <p className="text-xs text-zinc-400 uppercase tracking-wider">Sincronizando con base de datos...</p>
+                    <div className="flex flex-col items-center justify-center py-24 space-y-4 rounded-3xl border border-white/20 bg-black/30 backdrop-blur-xl">
+                        <div className="h-10 w-10 animate-spin rounded-full border-4 border-fuchsia-500/30 border-t-fuchsia-500" />
+                        <p className="text-sm font-bold text-zinc-200 uppercase tracking-widest">Cargando tus equipos...</p>
                     </div>
                 ) : products.length === 0 ? (
-                    <div className="rounded-xl border border-dashed border-zinc-200 p-8 text-center text-sm text-zinc-500">
-                        No se encontraron artículos técnicos vinculados a tu cuenta de cliente.
+                    <div className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-2xl p-12 text-center text-base text-zinc-300 shadow-2xl">
+                        No se encontraron artículos técnicos vinculados a tu cuenta.
                     </div>
                 ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-5">
                         {products.map((item) => {
                             const isOpen = openProductId === item.id
                             const warranty = calculateWarranty(item.saleCreatedAt, item.warrantyDays)
@@ -131,56 +139,63 @@ export default function ClientPage() {
                             return (
                                 <div
                                     key={item.id}
-                                    className="border border-zinc-200 bg-white rounded-xl transition-all duration-200 shadow-sm overflow-hidden"
+                                    className="border border-white/20 bg-black/40 backdrop-blur-xl rounded-3xl transition-all duration-300 shadow-2xl overflow-hidden hover:border-fuchsia-500/50 hover:bg-black/50"
                                 >
-                                    {/* Cabecera del Producto Card */}
+                                    {/* Cabecera del Producto */}
                                     <button
                                         onClick={() => toggleProduct(item.id)}
-                                        className="flex w-full items-center justify-between px-5 py-4 text-left transition-colors hover:bg-zinc-50"
+                                        className="flex w-full items-center justify-between px-7 py-6 text-left transition-colors hover:bg-white/5"
                                         aria-expanded={isOpen}
                                     >
-                                        <div className="space-y-0.5">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">
+                                        <div className="space-y-1">
+                                            <span className="text-xs font-black uppercase tracking-widest text-fuchsia-400">
                                                 {item.brand}
                                             </span>
-                                            <h2 className="text-base font-semibold tracking-tight text-zinc-900">
+                                            <h2 className="text-2xl font-black tracking-tight text-white uppercase">
                                                 {item.name}
                                             </h2>
                                         </div>
 
-                                        <svg
-                                            xmlns="http://www.w3.org/2000/svg"
-                                            fill="none"
-                                            viewBox="0 0 24 24"
-                                            strokeWidth={2}
-                                            stroke="currentColor"
-                                            className={`h-4 w-4 text-zinc-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""}`}
-                                        >
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
-                                        </svg>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs font-semibold text-zinc-300 hidden sm:inline">
+                                                {isOpen ? "Ocultar" : "Ver detalles"}
+                                            </span>
+                                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 border border-white/15">
+                                                <svg
+                                                    xmlns="http://www.w3.org/2000/svg"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    strokeWidth={2.5}
+                                                    stroke="currentColor"
+                                                    className={`h-5 w-5 text-white transition-transform duration-300 ${isOpen ? "rotate-180 text-fuchsia-400" : ""}`}
+                                                >
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                                                </svg>
+                                            </div>
+                                        </div>
                                     </button>
 
-                                    {/* Cuerpo Desplegable (Detalles Expandidos) */}
+                                    {/* Cuerpo Desplegable */}
                                     {isOpen && (
-                                        <div className="border-t border-zinc-100 bg-zinc-50/50 p-5 space-y-6 text-sm animate-in fade-in slide-in-from-top-1 duration-200">
+                                        <div className="border-t border-white/15 bg-black/60 p-7 space-y-7 text-base backdrop-blur-2xl animate-in fade-in duration-200">
 
                                             {/* Galería de Fotografías */}
                                             {item.photos && item.photos.length > 0 && (
-                                                <div className="space-y-2">
-                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Fotografías</h3>
-                                                    <div className="flex flex-wrap gap-2">
+                                                <div className="space-y-3">
+                                                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Fotografías Oficiales</h3>
+                                                    <div className="flex flex-wrap gap-3">
                                                         {item.photos.map((photoUrl, idx) => (
                                                             <a
                                                                 key={idx}
                                                                 href={photoUrl}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="block overflow-hidden rounded-lg border border-zinc-200 bg-white transition-opacity hover:opacity-90"
+                                                                className="block overflow-hidden rounded-2xl border border-white/20 bg-black/40 transition-all hover:scale-105 hover:border-fuchsia-500"
                                                             >
                                                                 <img
                                                                     src={photoUrl}
                                                                     alt={`${item.name} - ${idx + 1}`}
-                                                                    className="h-16 w-16 object-cover"
+                                                                    className="h-24 w-24 object-cover"
                                                                 />
                                                             </a>
                                                         ))}
@@ -189,62 +204,62 @@ export default function ClientPage() {
                                             )}
 
                                             {/* Detalles generales */}
-                                            <div className="space-y-1">
-                                                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Detalles del Producto</h3>
-                                                <p className="text-zinc-700 leading-relaxed">{item.details}</p>
+                                            <div className="space-y-2">
+                                                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Especificaciones Técnicas</h3>
+                                                <p className="text-zinc-200 leading-relaxed text-base font-normal">{item.details}</p>
                                             </div>
 
                                             {/* Estado de la Garantía */}
-                                            <div className="space-y-1.5">
-                                                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Garantía Oficial</h3>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium uppercase select-none ${warranty.isActive
-                                                        ? "bg-green-50 text-green-700 border border-green-200"
-                                                        : "bg-red-50 text-red-700 border border-red-200"
+                                            <div className="space-y-2">
+                                                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Garantía Oficial PHIIT</h3>
+                                                <div className="flex items-center gap-3">
+                                                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${warranty.isActive
+                                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                                        : "bg-red-500/20 text-red-300 border border-red-500/40"
                                                         }`}>
-                                                        {warranty.isActive ? "Vigente" : "Expirada"}
+                                                        {warranty.isActive ? "Cobertura Vigente" : "Cobertura Expirada"}
                                                     </span>
-                                                    <p className="text-xs text-zinc-600">
+                                                    <p className="text-sm font-medium text-zinc-200">
                                                         {warranty.isActive
-                                                            ? `Le quedan ${warranty.daysLeft} días de cobertura.`
-                                                            : "El período de cobertura técnica ha finalizado."}
+                                                            ? `Quedan ${warranty.daysLeft} días de soporte directo.`
+                                                            : "El período de cobertura estándar ha finalizado."}
                                                     </p>
                                                 </div>
                                             </div>
 
                                             {/* Barras de vida útil de repuestos */}
-                                            <div className="space-y-3">
-                                                <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Monitoreo de Componentes</h3>
+                                            <div className="space-y-4">
+                                                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Estado de Componentes</h3>
 
                                                 {(!item.trackedSpareParts || item.trackedSpareParts.length === 0) ? (
-                                                    <p className="text-xs text-zinc-400 italic">Este artículo no requiere seguimiento individual de partes.</p>
+                                                    <p className="text-sm text-zinc-400 italic">Este artículo no requiere seguimiento individual de partes.</p>
                                                 ) : (
-                                                    <div className="space-y-4 bg-white border border-zinc-200/60 rounded-xl p-4 shadow-sm">
+                                                    <div className="space-y-5 bg-black/40 border border-white/15 rounded-2xl p-5 shadow-inner">
                                                         {item.trackedSpareParts.map((part) => {
                                                             const pct = calculateLifePercentage(part.installedAt, part.lifespanDays)
                                                             return (
-                                                                <div key={part.id} className="space-y-1.5">
-                                                                    <div className="flex items-center justify-between text-xs font-medium">
-                                                                        <div className="flex items-center gap-2">
-                                                                            <span className="text-zinc-800">{part.name}</span>
+                                                                <div key={part.id} className="space-y-2">
+                                                                    <div className="flex items-center justify-between text-sm font-bold">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <span className="text-white">{part.name}</span>
                                                                             {part.spareProductId && (
                                                                                 <a
                                                                                     href={`/store/products/${part.spareProductId}`}
-                                                                                    className="text-[10px] text-zinc-500 hover:text-black underline underline-offset-2 transition-colors"
+                                                                                    className="text-xs text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-4 transition-colors font-semibold"
                                                                                 >
-                                                                                    Comprar repuesto
+                                                                                    Comprar repuesto original
                                                                                 </a>
                                                                             )}
                                                                         </div>
-                                                                        <span className={pct < 20 ? "text-red-600 font-bold animate-pulse" : "text-zinc-500"}>
+                                                                        <span className={pct < 20 ? "text-red-400 font-black animate-pulse" : "text-zinc-300"}>
                                                                             {Math.round(pct)}%
                                                                         </span>
                                                                     </div>
 
                                                                     {/* Barra de progreso */}
-                                                                    <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
+                                                                    <div className="h-2.5 w-full bg-white/10 rounded-full overflow-hidden border border-white/10">
                                                                         <div
-                                                                            className={`h-full transition-all duration-500 ${pct < 20 ? "bg-red-500" : "bg-black"
+                                                                            className={`h-full transition-all duration-500 ${pct < 20 ? "bg-red-500" : "bg-fuchsia-500"
                                                                                 }`}
                                                                             style={{ width: `${pct}%` }}
                                                                         />
@@ -258,28 +273,28 @@ export default function ClientPage() {
 
                                             {/* Catálogo General de Repuestos */}
                                             {item.spareParts && (
-                                                <div className="space-y-2">
-                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                                                        Catálogo General de Repuestos
+                                                <div className="space-y-3">
+                                                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">
+                                                        Repuestos Compatibles
                                                     </h3>
 
                                                     {Array.isArray(item.spareParts) ? (
-                                                        <div className="flex flex-wrap gap-2">
+                                                        <div className="flex flex-wrap gap-2.5">
                                                             {item.spareParts.map((part, idx) => (
                                                                 <div
                                                                     key={part.productId || idx}
-                                                                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs text-zinc-700 shadow-sm"
+                                                                    className="flex items-center gap-2 rounded-xl border border-white/20 bg-black/50 px-4 py-2 text-sm text-zinc-200 shadow-sm"
                                                                 >
-                                                                    <span className="font-medium text-zinc-900">{part.name}</span>
+                                                                    <span className="font-bold text-white">{part.name}</span>
                                                                     {part.lifespanDays && (
-                                                                        <span className="text-[10px] text-zinc-400">
-                                                                            (~{part.lifespanDays} días de vida)
+                                                                        <span className="text-xs text-zinc-400">
+                                                                            (~{part.lifespanDays} días)
                                                                         </span>
                                                                     )}
                                                                     {part.productId && (
                                                                         <a
                                                                             href={`/store/products/${part.productId}`}
-                                                                            className="ml-1 text-[10px] font-semibold text-black hover:underline"
+                                                                            className="ml-1 text-xs font-extrabold text-fuchsia-400 hover:underline"
                                                                         >
                                                                             Ver en tienda →
                                                                         </a>
@@ -288,7 +303,7 @@ export default function ClientPage() {
                                                             ))}
                                                         </div>
                                                     ) : (
-                                                        <p className="text-xs text-zinc-600 leading-relaxed">{item.spareParts}</p>
+                                                        <p className="text-sm text-zinc-300 leading-relaxed">{item.spareParts}</p>
                                                     )}
                                                 </div>
                                             )}
@@ -301,18 +316,25 @@ export default function ClientPage() {
                 )}
             </main>
 
-            <footer className="w-full border-t border-zinc-200 bg-white px-6 py-8 text-xs text-zinc-400">
-                <div className="mx-auto flex max-w-3xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            {/* FOOTER OFICIAL PHIIT */}
+            <footer className="w-full border-t border-white/15 bg-black/60 backdrop-blur-xl px-6 py-8 text-sm text-zinc-400 relative z-10">
+                <div className="mx-auto flex max-w-4xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
-                        <p className="font-semibold text-zinc-900 uppercase tracking-wider text-[10px]">Contacto & Redes</p>
+                        <p className="font-black text-white uppercase tracking-widest text-xs">PHIIT Equipments</p>
                         <div className="flex gap-4">
-                            <a href="#" className="hover:text-black transition-colors">Instagram</a>
-                            <a href="#" className="hover:text-black transition-colors">WhatsApp Corporativo</a>
+                            <a
+                                href="https://www.instagram.com/phiit_equipments/"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="hover:text-fuchsia-400 transition-colors text-xs font-semibold"
+                            >
+                                Instagram (@phiit_equipments)
+                            </a>
                         </div>
                     </div>
                     <div className="space-y-1 sm:text-right">
-                        <p className="font-semibold text-zinc-900 uppercase tracking-wider text-[10px]">Soporte Técnico</p>
-                        <a href="mailto:soporte@brief.com" className="hover:text-black transition-colors underline underline-offset-2">
+                        <p className="font-black text-white uppercase tracking-widest text-xs">Soporte Técnico</p>
+                        <a href="mailto:soporte@briefplataforma.com" className="hover:text-fuchsia-400 transition-colors underline underline-offset-4 text-xs">
                             soporte@briefplataforma.com
                         </a>
                     </div>

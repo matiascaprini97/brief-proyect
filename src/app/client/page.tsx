@@ -29,6 +29,7 @@ interface ProductBought {
     warrantyDays: number
     photos: string[]
     trackedSpareParts: TrackedSparePart[]
+    invoiceUrl?: string | null // === PROPIEDAD DE FACTURA ===
 }
 
 export default function ClientPage() {
@@ -46,7 +47,13 @@ export default function ClientPage() {
                 ])
 
                 if (productsRes.ok) {
+                    // 1. Consumes el stream UNA sola vez
                     const productsData = await productsRes.json()
+
+                    // 2. Imprimes la variable guardada (no el Response)
+                    console.log("Datos de la API:", productsData)
+
+                    // 3. Actualizas el estado
                     setProducts(productsData)
                 }
 
@@ -104,13 +111,13 @@ export default function ClientPage() {
                 className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat filter blur-lg scale-105 opacity-55 pointer-events-none"
                 style={{ backgroundImage: "url('/uploads/Wallpaper.jpeg')" }}
             />
-            {/* Capa de contraste semi-transparente (no oscurece de más) */}
+            {/* Capa de contraste semi-transparente */}
             <div className="fixed inset-0 -z-10 bg-gradient-to-b from-black/60 via-black/40 to-black/70 pointer-events-none" />
 
             <Navbar profilePicture={profilePicture} />
 
             <main className="flex-1 mx-auto w-full max-w-4xl px-6 py-12 relative z-10">
-                {/* Encabezado con estilo de tipografía PHIIT */}
+                {/* Encabezado */}
                 <div className="mb-12 space-y-2">
                     <h1 className="text-4xl sm:text-5xl font-black tracking-tight uppercase leading-none text-white">
                         MIS <span className="text-fuchsia-500 italic">ARTÍCULOS</span>
@@ -209,21 +216,45 @@ export default function ClientPage() {
                                                 <p className="text-zinc-200 leading-relaxed text-base font-normal">{item.details}</p>
                                             </div>
 
-                                            {/* Estado de la Garantía */}
-                                            <div className="space-y-2">
-                                                <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Garantía Oficial PHIIT</h3>
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${warranty.isActive
-                                                        ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
-                                                        : "bg-red-500/20 text-red-300 border border-red-500/40"
-                                                        }`}>
-                                                        {warranty.isActive ? "Cobertura Vigente" : "Cobertura Expirada"}
-                                                    </span>
-                                                    <p className="text-sm font-medium text-zinc-200">
-                                                        {warranty.isActive
-                                                            ? `Quedan ${warranty.daysLeft} días de soporte directo.`
-                                                            : "El período de cobertura estándar ha finalizado."}
-                                                    </p>
+                                            {/* Estado de la Garantía y Factura */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                <div className="space-y-2">
+                                                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Garantía Oficial PHIIT</h3>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${warranty.isActive
+                                                            ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
+                                                            : "bg-red-500/20 text-red-300 border border-red-500/40"
+                                                            }`}>
+                                                            {warranty.isActive ? "Cobertura Vigente" : "Cobertura Expirada"}
+                                                        </span>
+                                                        <p className="text-sm font-medium text-zinc-200">
+                                                            {warranty.isActive
+                                                                ? `Quedan ${warranty.daysLeft} días de soporte directo.`
+                                                                : "El período de cobertura estándar ha finalizado."}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {/* SECCIÓN DE FACTURA */}
+                                                <div className="space-y-2">
+                                                    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-400">Factura de Compra</h3>
+                                                    {item.invoiceUrl ? (
+                                                        <a
+                                                            href={item.invoiceUrl}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/15 px-4 py-2 text-xs font-bold text-fuchsia-300 uppercase tracking-wider hover:bg-fuchsia-500/30 hover:border-fuchsia-400 transition-all shadow-lg"
+                                                        >
+                                                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                                                            </svg>
+                                                            Ver / Descargar Factura
+                                                        </a>
+                                                    ) : (
+                                                        <p className="text-xs text-zinc-400 italic">
+                                                            Comprobante digital no disponible.
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
 

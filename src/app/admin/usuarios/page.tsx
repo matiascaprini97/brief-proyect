@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from "react"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
 
-const FALLBACK_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23a1a1aa'><rect width='100%25' height='100%25' fill='%23f4f4f5'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>"
+const FALLBACK_AVATAR = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2371717a'><rect width='100%25' height='100%25' fill='%2318181b'/><path d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/></svg>"
 
 interface User {
     id: string
@@ -251,17 +251,17 @@ export default function AdminUsuariosPage() {
         }
     }
 
-    // Componente helper para dibujar encabezados ordenables
+    // Encabezados ordenables
     const renderSortableHeader = (label: string, field: SortField, className = "") => {
         const isActive = sortField === field
         return (
             <th
                 onClick={() => handleSort(field)}
-                className={`p-4 cursor-pointer select-none transition-colors hover:text-black hover:bg-zinc-100/60 ${className}`}
+                className={`p-4 cursor-pointer select-none transition-colors hover:text-lime-400 hover:bg-zinc-800/40 ${className}`}
             >
                 <div className="flex items-center gap-1.5">
                     <span>{label}</span>
-                    <span className="text-[11px] text-zinc-400">
+                    <span className={`text-[11px] ${isActive ? "text-lime-400 font-bold" : "text-zinc-600"}`}>
                         {isActive ? (sortDirection === "asc" ? "↑" : "↓") : "↕"}
                     </span>
                 </div>
@@ -270,83 +270,97 @@ export default function AdminUsuariosPage() {
     }
 
     return (
-        <div className="flex min-h-screen flex-col bg-white text-black antialiased font-sans">
-            <Navbar profilePicture={profilePicture} />
+        <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 antialiased font-sans selection:bg-lime-400 selection:text-black">
+            <Navbar isAdmin={true} profilePicture={profilePicture} />
 
-            <main className="flex-1 mx-auto w-full max-w-3xl px-6 py-12">
-                <Link href="/admin" className="text-xs font-semibold text-zinc-400 hover:text-black flex items-center gap-1 mb-6 transition-colors w-fit">
-                    ← Volver al Panel
+            <main className="flex-1 mx-auto w-full max-w-5xl px-6 py-12">
+                <Link
+                    href="/admin"
+                    className="text-xs font-semibold text-zinc-400 hover:text-lime-400 flex items-center gap-1.5 mb-8 transition-colors w-fit group"
+                >
+                    <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Volver al Panel
                 </Link>
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
                     <div className="space-y-1">
-                        <h1 className="text-xl font-bold tracking-tighter uppercase">Control de Usuarios</h1>
-                        <p className="text-xs text-zinc-500">Gestioná las cuentas de clientes y los niveles de acceso del personal técnico.</p>
+                        <div className="flex items-center gap-2">
+                            <span className="h-2 w-2 rounded-full bg-lime-400 animate-pulse" />
+                            <h1 className="text-2xl font-bold tracking-tight text-white uppercase">Control de Usuarios</h1>
+                        </div>
+                        <p className="text-xs text-zinc-400">Gestioná los accesos de clientes y administradores de PHIIT Equipments.</p>
                     </div>
 
                     {selectedIds.length > 0 ? (
                         <button
                             onClick={handleBulkDelete}
-                            className="bg-red-500 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-red-600 transition-colors shadow-sm flex items-center gap-1.5 self-start md:self-center"
+                            className="bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-500/20 transition-all shadow-lg shadow-red-500/5 flex items-center gap-2 self-start md:self-center"
                         >
-                            🗑️ Eliminar Seleccionados ({selectedIds.length})
+                            <span>🗑️</span> Eliminar Seleccionados ({selectedIds.length})
                         </button>
                     ) : (
                         <button
                             onClick={handleOpenCreateModal}
-                            className="bg-black text-white text-xs font-medium px-4 py-2 rounded-lg hover:bg-zinc-800 transition-colors shadow-sm self-start md:self-center"
+                            className="bg-lime-400 hover:bg-lime-300 text-black text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-lime-400/10 hover:shadow-lime-400/20 active:scale-95 self-start md:self-center flex items-center gap-1.5"
                         >
-                            + Registrar Usuario
+                            <span className="text-sm font-black">+</span> Registrar Usuario
                         </button>
                     )}
                 </div>
 
-                <div className="border border-zinc-200 rounded-xl overflow-hidden shadow-sm bg-white">
+                {/* TABLA ESTILO DARK GLASSMORPHISM */}
+                <div className="border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-900/50 backdrop-blur-md shadow-2xl">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="bg-zinc-50 border-b border-zinc-200 text-[10px] uppercase tracking-wider font-bold text-zinc-500">
+                            <tr className="bg-zinc-900/90 border-b border-zinc-800/80 text-[10px] uppercase tracking-wider font-bold text-zinc-400">
                                 <th className="p-4 w-12 text-center">
                                     <input
                                         type="checkbox"
-                                        className="rounded border-zinc-300 text-black focus:ring-black cursor-pointer w-4 h-4"
+                                        className="rounded border-zinc-700 bg-zinc-800 text-lime-400 focus:ring-lime-400/50 cursor-pointer w-4 h-4 accent-lime-400"
                                         checked={users.length > 0 && selectedIds.length === users.length}
                                         onChange={handleSelectAll}
                                     />
                                 </th>
-                                {renderSortableHeader("Nombre / Empresa", "name")}
+                                {renderSortableHeader("Usuario / Nombre", "name")}
                                 {renderSortableHeader("Email", "email")}
                                 {renderSortableHeader("Rol", "role")}
                                 <th className="p-4 text-right">Acciones</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-zinc-100 text-sm">
+                        <tbody className="divide-y divide-zinc-800/50 text-sm">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-zinc-400 text-xs font-medium">
-                                        Cargando base de datos de usuarios...
+                                    <td colSpan={5} className="p-12 text-center text-zinc-500 text-xs font-medium">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-5 h-5 border-2 border-lime-400 border-t-transparent rounded-full animate-spin" />
+                                            Cargando base de datos de usuarios...
+                                        </div>
                                     </td>
                                 </tr>
                             ) : sortedUsers.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-8 text-center text-zinc-400 text-xs font-medium">
-                                        No hay usuarios registrados en el sistema.
+                                    <td colSpan={5} className="p-12 text-center text-zinc-500 text-xs font-medium">
+                                        No hay usuarios registrados en PHIIT.
                                     </td>
                                 </tr>
                             ) : (
                                 sortedUsers.map((user) => {
                                     const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ")
                                     const displayName = fullName || `@${user.username}`
+                                    const isSelected = selectedIds.includes(user.id)
 
                                     return (
                                         <tr
                                             key={user.id}
-                                            className={`hover:bg-zinc-50/50 transition-colors ${selectedIds.includes(user.id) ? "bg-zinc-50/80" : ""}`}
+                                            className={`transition-colors ${isSelected
+                                                ? "bg-lime-950/20 border-lime-500/20"
+                                                : "hover:bg-zinc-800/40"
+                                                }`}
                                         >
                                             <td className="p-4 text-center">
                                                 <input
                                                     type="checkbox"
-                                                    className="rounded border-zinc-300 text-black focus:ring-black cursor-pointer w-4 h-4"
-                                                    checked={selectedIds.includes(user.id)}
+                                                    className="rounded border-zinc-700 bg-zinc-800 text-lime-400 focus:ring-lime-400/50 cursor-pointer w-4 h-4 accent-lime-400"
+                                                    checked={isSelected}
                                                     onChange={() => handleSelectOne(user.id)}
                                                 />
                                             </td>
@@ -354,28 +368,33 @@ export default function AdminUsuariosPage() {
                                                 <img
                                                     src={user.profilePicture || FALLBACK_AVATAR}
                                                     alt={displayName}
-                                                    className="w-8 h-8 rounded-full object-cover border border-zinc-200 bg-zinc-100"
+                                                    className="w-9 h-9 rounded-full object-cover border border-zinc-700/80 bg-zinc-800 shadow-inner"
                                                     onError={(e) => {
                                                         e.currentTarget.src = FALLBACK_AVATAR
                                                     }}
                                                 />
                                                 <div>
-                                                    <div className="font-medium text-zinc-900">{displayName}</div>
-                                                    <div className="text-[11px] text-zinc-400 font-mono">
+                                                    <div className="font-medium text-zinc-100">{displayName}</div>
+                                                    <div className="text-[11px] text-zinc-500 font-mono">
                                                         Alta: {new Date(user.createdAt).toLocaleDateString()}
                                                     </div>
                                                 </div>
                                             </td>
-                                            <td className="p-4 text-zinc-600 font-mono text-xs">{user.email}</td>
+                                            <td className="p-4 text-zinc-400 font-mono text-xs">{user.email}</td>
                                             <td className="p-4">
-                                                <span className={`text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded ${user.role === "ADMIN" ? "bg-zinc-950 text-white" : "bg-zinc-100 text-zinc-800"}`}>
+                                                <span
+                                                    className={`text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-1 rounded-md border ${user.role === "ADMIN"
+                                                        ? "bg-lime-400/10 text-lime-400 border-lime-500/30 shadow-sm shadow-lime-500/10"
+                                                        : "bg-zinc-800/80 text-zinc-300 border-zinc-700/60"
+                                                        }`}
+                                                >
                                                     {user.role}
                                                 </span>
                                             </td>
                                             <td className="p-4 text-right">
                                                 <button
                                                     onClick={() => handleOpenEditModal(user)}
-                                                    className="text-xs font-bold text-black hover:underline transition-all"
+                                                    className="text-xs font-bold text-lime-400 hover:text-lime-300 hover:underline transition-all"
                                                 >
                                                     Gestionar
                                                 </button>
@@ -389,38 +408,39 @@ export default function AdminUsuariosPage() {
                 </div>
             </main>
 
-            {/* MODAL INTEGRADO (CREACIÓN Y EDICIÓN) */}
+            {/* MODAL INTEGRADO DARK GLASSMORPHISM */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white border border-zinc-200 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
-                            <h2 className="text-sm font-bold uppercase tracking-wider">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-fade-in">
+                    <div className="bg-zinc-900/95 border border-zinc-800 w-full max-w-md rounded-2xl p-6 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto text-zinc-100">
+                        <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+                            <h2 className="text-xs font-bold uppercase tracking-wider text-zinc-200 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-lime-400" />
                                 {selectedUser ? "Editar Perfil de Usuario" : "Registrar Nuevo Usuario"}
                             </h2>
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="text-zinc-400 hover:text-black font-semibold text-lg"
+                                className="text-zinc-500 hover:text-zinc-200 font-bold text-lg transition-colors"
                             >
                                 ✕
                             </button>
                         </div>
 
-                        <form onSubmit={handleSaveChanges} className="space-y-5">
+                        <form onSubmit={handleSaveChanges} className="space-y-4">
                             <div className="flex flex-col items-center justify-center space-y-2">
                                 <div
                                     onClick={() => fileInputRef.current?.click()}
-                                    className="group relative w-20 h-20 rounded-full overflow-hidden border border-zinc-300 shadow-sm bg-zinc-100 cursor-pointer flex items-center justify-center"
+                                    className="group relative w-20 h-20 rounded-full overflow-hidden border-2 border-dashed border-zinc-700 hover:border-lime-400 shadow-inner bg-zinc-950 cursor-pointer flex items-center justify-center transition-colors"
                                 >
                                     <img
                                         src={imagePreview || FALLBACK_AVATAR}
                                         alt="Previsualización"
-                                        className="w-full h-full object-cover group-hover:opacity-40 transition-opacity"
+                                        className="w-full h-full object-cover group-hover:opacity-30 transition-opacity"
                                         onError={(e) => {
                                             e.currentTarget.src = FALLBACK_AVATAR
                                         }}
                                     />
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 text-white">
-                                        <span className="text-[10px] font-bold uppercase tracking-tighter text-center px-1">Cargar Foto</span>
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white">
+                                        <span className="text-[10px] font-bold uppercase tracking-tight text-lime-400 text-center px-1">Cargar Foto</span>
                                     </div>
                                 </div>
                                 <input
@@ -430,16 +450,16 @@ export default function AdminUsuariosPage() {
                                     className="hidden"
                                     onChange={handleFileChange}
                                 />
-                                <p className="text-[10px] text-zinc-400 uppercase tracking-wide">Clic en el avatar para cambiar</p>
+                                <p className="text-[10px] text-zinc-500 uppercase tracking-wide">Clic para subir avatar</p>
                             </div>
 
                             <div className="space-y-3">
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Nombre de Usuario (@)</label>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Nombre de Usuario (@)</label>
                                     <input
                                         type="text"
                                         required
-                                        className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 focus:border-black focus:ring-1 focus:ring-black outline-none font-mono"
+                                        className="w-full text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 outline-none font-mono transition-colors"
                                         value={formUsername}
                                         onChange={(e) => setFormUsername(e.target.value)}
                                         placeholder="ej: marisapilates"
@@ -448,11 +468,11 @@ export default function AdminUsuariosPage() {
 
                                 {!selectedUser && (
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Contraseña</label>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Contraseña Inicial</label>
                                         <input
                                             type="password"
                                             required={!selectedUser}
-                                            className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 focus:border-black focus:ring-1 focus:ring-black outline-none font-mono"
+                                            className="w-full text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 outline-none font-mono transition-colors"
                                             value={formPassword}
                                             onChange={(e) => setFormPassword(e.target.value)}
                                             placeholder="Contraseña inicial de acceso"
@@ -462,19 +482,19 @@ export default function AdminUsuariosPage() {
 
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Nombre</label>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Nombre</label>
                                         <input
                                             type="text"
-                                            className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 focus:border-black focus:ring-1 focus:ring-black outline-none font-medium"
+                                            className="w-full text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 outline-none font-medium transition-colors"
                                             value={formFirstName}
                                             onChange={(e) => setFormFirstName(e.target.value)}
                                         />
                                     </div>
                                     <div className="space-y-1">
-                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Apellido</label>
+                                        <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Apellido</label>
                                         <input
                                             type="text"
-                                            className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 focus:border-black focus:ring-1 focus:ring-black outline-none font-medium"
+                                            className="w-full text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 outline-none font-medium transition-colors"
                                             value={formLastName}
                                             onChange={(e) => setFormLastName(e.target.value)}
                                         />
@@ -482,11 +502,11 @@ export default function AdminUsuariosPage() {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Correo Electrónico</label>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Correo Electrónico</label>
                                     <input
                                         type="email"
                                         required
-                                        className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 focus:border-black focus:ring-1 focus:ring-black outline-none font-mono"
+                                        className="w-full text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 outline-none font-mono transition-colors"
                                         value={formEmail}
                                         onChange={(e) => setFormEmail(e.target.value)}
                                         placeholder="correo@empresa.com"
@@ -494,10 +514,10 @@ export default function AdminUsuariosPage() {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Teléfono de Contacto</label>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Teléfono de Contacto</label>
                                     <input
                                         type="text"
-                                        className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 focus:border-black focus:ring-1 focus:ring-black outline-none font-mono"
+                                        className="w-full text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-100 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 outline-none font-mono transition-colors"
                                         value={formPhoneNumber}
                                         onChange={(e) => setFormPhoneNumber(e.target.value)}
                                         placeholder="Ej: +54 9 351..."
@@ -505,30 +525,30 @@ export default function AdminUsuariosPage() {
                                 </div>
 
                                 <div className="space-y-1">
-                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 block">Rol del Sistema</label>
+                                    <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Rol del Sistema</label>
                                     <select
-                                        className="w-full text-xs border border-zinc-200 rounded-lg p-2.5 focus:border-black focus:ring-1 focus:ring-black outline-none font-medium cursor-pointer"
+                                        className="w-full text-xs bg-zinc-950 border border-zinc-800 rounded-xl p-3 text-zinc-200 focus:border-lime-500 focus:ring-1 focus:ring-lime-500 outline-none font-medium cursor-pointer transition-colors"
                                         value={formRole}
                                         onChange={(e) => setFormRole(e.target.value as "CLIENT" | "ADMIN")}
                                     >
-                                        <option value="CLIENT">Cliente (Estudio / Alumno)</option>
-                                        <option value="ADMIN">Administrador (Técnico / Dueño)</option>
+                                        <option value="CLIENT" className="bg-zinc-900 text-zinc-200">Cliente (Estudio / Alumno)</option>
+                                        <option value="ADMIN" className="bg-zinc-900 text-zinc-200">Administrador (Técnico / Dueño)</option>
                                     </select>
                                 </div>
                             </div>
 
-                            <div className="flex gap-2 pt-2">
+                            <div className="flex gap-2 pt-3">
                                 <button
                                     type="button"
                                     onClick={() => setIsModalOpen(false)}
-                                    className="flex-1 bg-zinc-100 hover:bg-zinc-200 text-black text-xs font-bold py-3 rounded-lg transition-colors uppercase tracking-wider"
+                                    className="flex-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-bold py-3 rounded-xl transition-colors uppercase tracking-wider"
                                 >
                                     Cancelar
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={isSaving}
-                                    className="flex-1 bg-black hover:bg-zinc-800 text-white text-xs font-bold py-3 rounded-lg transition-colors uppercase tracking-wider disabled:bg-zinc-400"
+                                    className="flex-1 bg-lime-400 hover:bg-lime-300 text-black text-xs font-bold py-3 rounded-xl transition-all shadow-lg shadow-lime-400/10 uppercase tracking-wider disabled:bg-zinc-800 disabled:text-zinc-600"
                                 >
                                     {isSaving ? "Guardando..." : selectedUser ? "Guardar Cambios" : "Crear Usuario"}
                                 </button>
@@ -538,8 +558,8 @@ export default function AdminUsuariosPage() {
                 </div>
             )}
 
-            <footer className="w-full border-t border-zinc-100 bg-white py-4 text-center text-[10px] uppercase tracking-wider text-zinc-400 select-none">
-                Brief Plataforma — Módulo de Identidad
+            <footer className="w-full border-t border-zinc-900 bg-zinc-950 py-5 text-center text-[10px] uppercase tracking-wider text-zinc-600 select-none">
+                PHIIT Equipments — Módulo de Administración de Usuarios
             </footer>
         </div>
     )

@@ -11,6 +11,13 @@ enum Role {
   CLIENT
 }
 
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  SYSTEM
+}
+
 model User {
   id             String   @id @default(uuid())
   role           Role     @default(CLIENT)
@@ -24,10 +31,11 @@ model User {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
-  sales          Sale[]
+  sales         Sale[]
+  notifications Notification[] // 👈 Relación con sus notificaciones
 
-  resetToken        String?   @unique
-  resetTokenExpiry  DateTime?
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
 }
 
 model Product {
@@ -36,28 +44,27 @@ model Product {
   name                String
   details             String   @db.Text
   photos              String[]
-  spareParts          String?  // Guarda el JSON de repuestos asociados si es un Equipo
-  warrantyDays        Int      @default(365) 
-  
-  // 👈 NUEVOS CAMPOS PARA CLASIFICACIÓN
-  isSpare             Boolean  @default(false)         // Si es true, es un repuesto. Si es false, es un equipo.
-  defaultLifespanDays Int      @default(180)           // Vida útil sugerida por defecto si es repuesto.
-  
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  spareParts          String?
+  warrantyDays        Int      @default(365)
+  isSpare             Boolean  @default(false)
+  defaultLifespanDays Int      @default(180)
 
-  sales               Sale[]
-  trackedAsSpare      TrackedSparePart[] 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sales          Sale[]
+  trackedAsSpare TrackedSparePart[]
 }
 
 model Sale {
-  id        String   @id @default(uuid())
-  userId    String
-  productId String
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  userId     String
+  productId  String
+  invoiceUrl String?
+  createdAt  DateTime @default(now())
 
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
   trackedSpareParts TrackedSparePart[]
 
@@ -68,16 +75,33 @@ model Sale {
 model TrackedSparePart {
   id             String   @id @default(uuid())
   saleId         String
-  name           String   
-  spareProductId String?  
-  installedAt    DateTime @default(now()) 
-  lifespanDays   Int      @default(180)   
+  name           String
+  spareProductId String?
+  installedAt    DateTime @default(now())
+  lifespanDays   Int      @default(180)
 
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  sale           Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  spareProduct   Product? @relation(fields: [spareProductId], references: [id], onDelete: SetNull)
+  sale         Sale     @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  spareProduct Product? @relation(fields: [spareProductId], references: [id], onDelete: SetNull)
 
   @@index([saleId])
+}
+
+// 👈 NUEVA TABLA DE NOTIFICACIONES
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  title     String
+  message   String           @db.Text
+  link      String?
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
 }

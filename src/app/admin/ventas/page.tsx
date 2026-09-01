@@ -33,6 +33,7 @@ interface Sale {
     user: User
     product: Product
     trackedSpareParts: TrackedSparePart[]
+    invoiceUrl?: string
 }
 
 export default function AdminVentasPage() {
@@ -42,7 +43,6 @@ export default function AdminVentasPage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState("")
 
-    // Estado del Modal de Nueva Venta Inteligente
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [submitting, setSubmitting] = useState(false)
     const [email, setEmail] = useState("")
@@ -50,17 +50,15 @@ export default function AdminVentasPage() {
     const [lastName, setLastName] = useState("")
     const [phoneNumber, setPhoneNumber] = useState("")
     const [productId, setProductId] = useState("")
+    const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
 
-    // Estado para mostrar credenciales generadas de nuevo cliente
     const [createdCredentials, setCreatedCredentials] = useState<{
         username: string
         password: string
     } | null>(null)
 
-    // Estado para controlar qué venta tiene abierto el panel de repuestos
     const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
 
-    // Cargar perfil, ventas y productos al montar
     useEffect(() => {
         fetchProfile()
         fetchSales()
@@ -99,7 +97,6 @@ export default function AdminVentasPage() {
             const res = await fetch("/api/admin/products")
             if (res.ok) {
                 const data = await res.json()
-                // Opcional: mostrar únicamente equipos (isSpare: false)
                 setProducts(data.filter((p: Product) => !p.isSpare))
             }
         } catch (error) {
@@ -107,7 +104,6 @@ export default function AdminVentasPage() {
         }
     }
 
-    // Registrar Venta Inteligente
     const handleCreateSale = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!email || !productId) {
@@ -119,16 +115,19 @@ export default function AdminVentasPage() {
         setCreatedCredentials(null)
 
         try {
+            const formData = new FormData()
+            formData.append("email", email)
+            formData.append("firstName", firstName)
+            formData.append("lastName", lastName)
+            formData.append("phoneNumber", phoneNumber)
+            formData.append("productId", productId)
+            if (invoiceFile) {
+                formData.append("invoice", invoiceFile)
+            }
+
             const res = await fetch("/api/sales", {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    email,
-                    firstName,
-                    lastName,
-                    phoneNumber,
-                    productId,
-                }),
+                body: formData,
             })
 
             const data = await res.json()
@@ -137,7 +136,6 @@ export default function AdminVentasPage() {
                 throw new Error(data.error || "Ocurrió un error al procesar la venta")
             }
 
-            // Si el backend autogeneró un cliente, guardamos sus credenciales para mostrarlas
             if (data.isNewUser && data.generatedCredentials) {
                 setCreatedCredentials(data.generatedCredentials)
             } else {
@@ -146,7 +144,7 @@ export default function AdminVentasPage() {
                 resetForm()
             }
 
-            fetchSales() // Refrescar la tabla
+            fetchSales()
         } catch (error: any) {
             alert(`Error: ${error.message}`)
         } finally {
@@ -154,7 +152,6 @@ export default function AdminVentasPage() {
         }
     }
 
-    // Resetear/Reponer un repuesto al 100%
     const handleResetPart = async (partId: string) => {
         try {
             const res = await fetch(`/api/tracked-spares/${partId}/reset`, {
@@ -162,7 +159,6 @@ export default function AdminVentasPage() {
             })
 
             if (res.ok) {
-                // Actualización optimista o re-fetch
                 fetchSales()
             } else {
                 alert("Error al resetear el repuesto.")
@@ -172,7 +168,6 @@ export default function AdminVentasPage() {
         }
     }
 
-    // Eliminar Venta
     const handleDeleteSale = async (saleId: string) => {
         if (!confirm("¿Estás seguro de eliminar esta venta y su monitoreo asociado?")) return
 
@@ -197,24 +192,23 @@ export default function AdminVentasPage() {
         setLastName("")
         setPhoneNumber("")
         setProductId("")
+        setInvoiceFile(null)
         setCreatedCredentials(null)
     }
 
-    // Calcular estado y porcentaje de vida útil
     const calculateLifespan = (installedAt: string, lifespanDays: number) => {
         const installDate = new Date(installedAt).getTime()
         const now = new Date().getTime()
         const daysElapsed = Math.floor((now - installDate) / (1000 * 60 * 60 * 24))
         const percentRemaining = Math.max(0, Math.round(100 - (daysElapsed / lifespanDays) * 100))
 
-        let color = "bg-emerald-500"
-        if (percentRemaining < 20) color = "bg-rose-500"
-        else if (percentRemaining < 50) color = "bg-amber-500"
+        let color = "bg-lime-400 shadow-[0_0_10px_rgba(163,230,53,0.5)]"
+        if (percentRemaining < 20) color = "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"
+        else if (percentRemaining < 50) color = "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]"
 
         return { daysElapsed, percentRemaining, color }
     }
 
-    // Filtrar ventas por buscador
     const filteredSales = sales.filter((sale) => {
         const query = searchTerm.toLowerCase()
         const clientName = `${sale.user?.firstName || ""} ${sale.user?.lastName || ""}`.toLowerCase()
@@ -224,22 +218,24 @@ export default function AdminVentasPage() {
     })
 
     return (
-        <div className="flex min-h-screen flex-col bg-zinc-50 text-black antialiased font-sans">
-            <Navbar profilePicture={profilePicture} />
+        <div className="flex min-h-screen flex-col bg-black text-white antialiased font-sans selection:bg-lime-400 selection:text-black">
+            <Navbar isAdmin={true} profilePicture={profilePicture} />
 
-            <main className="flex-1 mx-auto w-full max-w-6xl px-6 py-10">
+            <main className="flex-1 mx-auto w-full max-w-7xl px-6 py-10">
                 {/* Header & Volver */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                     <div>
                         <Link
                             href="/admin"
-                            className="text-xs font-semibold text-zinc-400 hover:text-black flex items-center gap-1 mb-2 transition-colors w-fit"
+                            className="text-xs font-bold uppercase tracking-wider text-zinc-400 hover:text-lime-400 flex items-center gap-1.5 mb-3 transition-colors w-fit group"
                         >
-                            ← Volver al Panel
+                            <span className="group-hover:-translate-x-1 transition-transform">←</span> Volver al Panel
                         </Link>
-                        <h1 className="text-2xl font-bold tracking-tight uppercase">Consola de Gestión de Ventas</h1>
-                        <p className="text-xs text-zinc-500">
-                            Administrá las transacciones registradas, asociá clientes y monitoreá el ciclo de vida de los repuestos.
+                        <h1 className="text-3xl font-black tracking-tight uppercase text-white flex items-center gap-3">
+                            Consola de Gestión de Ventas
+                        </h1>
+                        <p className="text-xs text-zinc-400 mt-1 max-w-xl">
+                            Administrá transacciones registradas, asigná clientes, adjuntá facturas y monitoreá en tiempo real el ciclo de vida de los componentes.
                         </p>
                     </div>
 
@@ -248,100 +244,144 @@ export default function AdminVentasPage() {
                             resetForm()
                             setIsModalOpen(true)
                         }}
-                        className="bg-black text-white text-xs font-semibold uppercase tracking-wider px-5 py-3 rounded-lg hover:bg-zinc-800 transition-all shadow-sm self-start md:self-auto"
+                        className="bg-lime-400 text-black hover:bg-lime-300 text-xs font-black uppercase tracking-widest px-6 py-3.5 rounded-2xl transition-all shadow-[0_0_25px_rgba(163,230,53,0.25)] hover:shadow-[0_0_35px_rgba(163,230,53,0.4)] active:scale-95 self-start md:self-auto border border-lime-300/50 flex items-center gap-2 whitespace-nowrap"
                     >
-                        + Nueva Venta Inteligente
+                        <span>+</span> Nueva Venta Inteligente
                     </button>
                 </div>
 
-                {/* Buscador */}
-                <div className="mb-6">
+                {/* Buscador Glassmorphic */}
+                <div className="mb-6 relative">
                     <input
                         type="text"
-                        placeholder="Buscar por cliente, email o producto..."
+                        placeholder="Buscar por cliente, email o equipo..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full text-sm border border-zinc-200 bg-white px-4 py-3 rounded-xl focus:outline-none focus:border-black shadow-sm font-medium transition-colors"
+                        className="w-full text-sm border border-white/10 bg-white/5 text-white px-5 py-3.5 rounded-2xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 shadow-2xl backdrop-blur-xl font-medium transition-all placeholder:text-zinc-500"
                     />
                 </div>
 
-                {/* Tabla de Ventas */}
-                <div className="border border-zinc-200 bg-white rounded-xl shadow-sm overflow-hidden">
+                {/* Tabla / Lista de Ventas Glassmorphic */}
+                <div className="border border-white/10 bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden">
                     {loading ? (
-                        <div className="p-12 text-center text-xs text-zinc-400 font-medium">Cargando consola de ventas...</div>
+                        <div className="p-16 text-center text-xs text-zinc-400 font-bold uppercase tracking-widest animate-pulse">
+                            Cargando consola de ventas...
+                        </div>
                     ) : filteredSales.length === 0 ? (
-                        <div className="p-12 text-center text-xs text-zinc-400 font-medium">
+                        <div className="p-16 text-center text-xs text-zinc-500 font-medium">
                             No se encontraron ventas registradas.
                         </div>
                     ) : (
-                        <div className="divide-y divide-zinc-100">
+                        <div className="divide-y divide-white/10">
                             {filteredSales.map((sale) => {
                                 const isExpanded = expandedSaleId === sale.id
                                 const partsCount = sale.trackedSpareParts?.length || 0
 
                                 return (
-                                    <div key={sale.id} className="transition-colors hover:bg-zinc-50/50">
-                                        <div className="p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                            {/* Info Cliente */}
-                                            <div className="space-y-1 min-w-[200px]">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Cliente</span>
-                                                <div className="text-sm font-bold text-zinc-900">
-                                                    {sale.user?.firstName} {sale.user?.lastName}
+                                    <div key={sale.id} className="transition-all hover:bg-white/[0.02]">
+                                        {/* Grid Unificado de Columnas para alineación perfecta */}
+                                        <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-4 md:items-center">
+
+                                            {/* Columna 1: Info Cliente (3 Cols) */}
+                                            <div className="md:col-span-3 space-y-0.5 min-w-0">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">
+                                                    Cliente
+                                                </span>
+                                                <div className="text-sm font-bold text-white truncate">
+                                                    {sale.user?.firstName || "Cliente"} {sale.user?.lastName || ""}
                                                 </div>
-                                                <div className="text-xs text-zinc-500 font-mono">{sale.user?.email}</div>
+                                                <div className="text-xs text-zinc-400 font-mono truncate">
+                                                    {sale.user?.email}
+                                                </div>
                                             </div>
 
-                                            {/* Info Equipo */}
-                                            <div className="space-y-1 min-w-[200px]">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Equipo Adquirido</span>
-                                                <div className="text-sm font-semibold text-zinc-800">{sale.product?.name}</div>
+                                            {/* Columna 2: Info Equipo (3 Cols) */}
+                                            <div className="md:col-span-3 space-y-0.5 min-w-0">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">
+                                                    Equipo Adquirido
+                                                </span>
+                                                <div className="text-sm font-bold text-lime-400 truncate">
+                                                    {sale.product?.name}
+                                                </div>
                                                 <div className="text-[11px] text-zinc-400">
-                                                    Fecha: {new Date(sale.createdAt).toLocaleDateString()}
+                                                    {new Date(sale.createdAt).toLocaleDateString()}
                                                 </div>
                                             </div>
 
-                                            {/* Info Repuestos Registrados */}
-                                            <div className="space-y-1">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400">Componentes</span>
-                                                <div>
-                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-zinc-100 text-zinc-700">
-                                                        ⚙️ {partsCount} {partsCount === 1 ? "Pieza" : "Piezas"} bajo seguimiento
-                                                    </span>
+                                            {/* Columna 3: Badge Componentes (2 Cols) */}
+                                            <div className="md:col-span-2 space-y-1">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">
+                                                    Componentes
+                                                </span>
+                                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 border border-white/10 text-zinc-200 backdrop-blur-md whitespace-nowrap">
+                                                    <svg className="w-3.5 h-3.5 text-lime-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                    <span>{partsCount} {partsCount === 1 ? "Pieza" : "Piezas"}</span>
                                                 </div>
                                             </div>
 
-                                            {/* Acciones */}
-                                            <div className="flex items-center gap-2 pt-2 md:pt-0">
+                                            {/* Columna 4: Botones de Acción Normalizados (4 Cols) */}
+                                            <div className="md:col-span-4 flex items-center md:justify-end gap-2 pt-2 md:pt-0 flex-wrap shrink-0">
+                                                {sale.invoiceUrl && (
+                                                    <a
+                                                        href={sale.invoiceUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-white/5 border border-white/10 hover:border-lime-400/50 hover:text-lime-400 text-zinc-200 transition-all inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                                                        title="Ver / Descargar Factura PDF"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5 text-lime-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V7.5L14.5 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v5h5M9 13h6M9 17h4" />
+                                                        </svg>
+                                                        <span>Factura</span>
+                                                    </a>
+                                                )}
+
                                                 <button
                                                     onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
-                                                    className="text-xs font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-800 px-3 py-2 rounded-lg transition-colors"
+                                                    className={`h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all border inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${isExpanded
+                                                        ? "bg-lime-400 text-black border-lime-400 shadow-[0_0_15px_rgba(163,230,53,0.3)]"
+                                                        : "bg-white/5 border-white/10 hover:border-lime-400/50 hover:text-lime-400 text-zinc-200"
+                                                        }`}
                                                 >
-                                                    {isExpanded ? "Ocultar Repuestos" : "Gestionar Repuestos"}
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                                    </svg>
+                                                    <span>{isExpanded ? "Ocultar Repuestos" : "Gestionar Repuestos"}</span>
                                                 </button>
+
                                                 <button
                                                     onClick={() => handleDeleteSale(sale.id)}
-                                                    className="text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 rounded-lg transition-colors"
+                                                    className="h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500 hover:text-white text-rose-400 transition-all inline-flex items-center shrink-0 whitespace-nowrap"
+                                                    title="Eliminar venta"
                                                 >
                                                     Eliminar
                                                 </button>
                                             </div>
+
                                         </div>
 
-                                        {/* Panel Desplegable de Repuestos */}
+                                        {/* PANEL DESPLEGABLE DE REPUESTOS */}
                                         {isExpanded && (
-                                            <div className="bg-zinc-900 text-white p-6 border-t border-zinc-800 space-y-4">
-                                                <div className="flex items-center justify-between">
-                                                    <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
-                                                        🚨 Monitoreo y Reposición de Piezas — {sale.product?.name}
-                                                    </h3>
-                                                    <span className="text-[10px] text-zinc-500 font-mono">
+                                            <div className="bg-black/80 border-t border-white/10 p-6 md:p-8 backdrop-blur-2xl space-y-5 animate-in fade-in duration-200">
+                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="h-2 w-2 rounded-full bg-lime-400 animate-pulse" />
+                                                        <h3 className="text-xs font-black uppercase tracking-widest text-lime-400">
+                                                            Monitoreo y Reposición — {sale.product?.name}
+                                                        </h3>
+                                                    </div>
+                                                    <span className="text-[10px] text-zinc-500 font-mono tracking-wider">
                                                         ID VENTA: {sale.id.slice(0, 8)}...
                                                     </span>
                                                 </div>
 
                                                 {partsCount === 0 ? (
-                                                    <p className="text-xs text-zinc-500 italic py-2">
-                                                        Este equipo no tiene repuestos en seguimiento configurados.
+                                                    <p className="text-xs text-zinc-500 italic py-4 text-center">
+                                                        Este equipo no tiene repuestos configurados para monitoreo activo.
                                                     </p>
                                                 ) : (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -354,32 +394,32 @@ export default function AdminVentasPage() {
                                                             return (
                                                                 <div
                                                                     key={part.id}
-                                                                    className="bg-zinc-800/80 border border-zinc-700/60 rounded-xl p-4 space-y-3"
+                                                                    className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 space-y-4 hover:border-lime-400/30 transition-all group"
                                                                 >
                                                                     <div className="flex items-start justify-between gap-2">
                                                                         <div>
-                                                                            <h4 className="text-xs font-bold text-white">{part.name}</h4>
-                                                                            <p className="text-[11px] text-zinc-400">
-                                                                                Uso: <span className="text-zinc-200 font-mono">{daysElapsed} días</span> / Máx {part.lifespanDays} días
+                                                                            <h4 className="text-xs font-extrabold uppercase tracking-wide text-white group-hover:text-lime-300 transition-colors">
+                                                                                {part.name}
+                                                                            </h4>
+                                                                            <p className="text-[11px] text-zinc-400 mt-1">
+                                                                                Uso: <span className="text-white font-mono font-bold">{daysElapsed} días</span> / Máx {part.lifespanDays} días
                                                                             </p>
                                                                         </div>
-                                                                        <span className="text-xs font-bold font-mono text-zinc-300">
+                                                                        <span className="text-sm font-black font-mono text-lime-400">
                                                                             {percentRemaining}%
                                                                         </span>
                                                                     </div>
 
-                                                                    {/* Barra de Progreso */}
-                                                                    <div className="w-full bg-zinc-700 h-2 rounded-full overflow-hidden">
+                                                                    <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden p-0.5 border border-white/5">
                                                                         <div
-                                                                            className={`h-full ${color} transition-all duration-500`}
+                                                                            className={`h-full rounded-full ${color} transition-all duration-500`}
                                                                             style={{ width: `${percentRemaining}%` }}
                                                                         />
                                                                     </div>
 
-                                                                    {/* Botón Reset */}
                                                                     <button
                                                                         onClick={() => handleResetPart(part.id)}
-                                                                        className="w-full text-center bg-zinc-700 hover:bg-zinc-600 text-white text-[11px] font-semibold tracking-wider uppercase py-2 rounded-lg transition-colors border border-zinc-600/50"
+                                                                        className="w-full text-center bg-lime-400/10 border border-lime-400/30 hover:bg-lime-400 hover:text-black text-lime-400 text-[11px] font-black tracking-widest uppercase py-2.5 rounded-xl transition-all shadow-[0_0_15px_rgba(163,230,53,0.1)] hover:shadow-[0_0_20px_rgba(163,230,53,0.4)] active:scale-95"
                                                                     >
                                                                         ⚡ Reponer / Resetear al 100%
                                                                     </button>
@@ -398,22 +438,24 @@ export default function AdminVentasPage() {
                 </div>
             </main>
 
-            {/* MODAL: Nueva Venta Inteligente */}
+            {/* MODAL: Venta Inteligente */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-zinc-200 space-y-5 animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+                    <div className="bg-zinc-950/90 border border-white/15 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-[0_0_60px_rgba(163,230,53,0.12)] backdrop-blur-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+
+                        {/* Header Modal */}
+                        <div className="flex items-center justify-between border-b border-white/10 pb-4">
                             <div>
-                                <h2 className="text-base font-bold uppercase tracking-tight text-zinc-900">
-                                    Registrar Venta Inteligente
+                                <h2 className="text-lg font-black uppercase tracking-wider text-white flex items-center gap-2">
+                                    <span className="text-lime-400">✦</span> Registrar Venta Inteligente
                                 </h2>
-                                <p className="text-xs text-zinc-500">
-                                    Si el email no existe, crearemos el usuario automáticamente.
+                                <p className="text-xs text-zinc-400 mt-0.5">
+                                    Si el email no existe, crearemos el cliente de forma automática.
                                 </p>
                             </div>
                             <button
                                 onClick={() => setIsModalOpen(false)}
-                                className="text-zinc-400 hover:text-black font-bold text-sm"
+                                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/5 border border-white/10 text-zinc-400 hover:text-white hover:bg-white/10 transition-all"
                             >
                                 ✕
                             </button>
@@ -421,21 +463,21 @@ export default function AdminVentasPage() {
 
                         {/* Cartel de Credenciales Autogeneradas */}
                         {createdCredentials ? (
-                            <div className="bg-emerald-50 border border-emerald-200 p-5 rounded-xl space-y-3">
-                                <div className="flex items-center gap-2 text-emerald-800 font-bold text-xs uppercase tracking-wider">
-                                    <span>🎉</span> ¡Cliente creado automáticamente!
+                            <div className="bg-lime-950/40 border border-lime-500/50 p-6 rounded-2xl space-y-4 shadow-[0_0_25px_rgba(163,230,53,0.15)]">
+                                <div className="flex items-center gap-2 text-lime-400 font-extrabold text-xs uppercase tracking-wider">
+                                    <span>🎉</span> ¡Cliente Creado Exitosamente!
                                 </div>
-                                <p className="text-xs text-emerald-700">
+                                <p className="text-xs text-zinc-300">
                                     Compartile estas credenciales al usuario para que ingrese a su panel:
                                 </p>
-                                <div className="bg-white p-3 rounded-lg border border-emerald-200 font-mono text-xs space-y-1">
-                                    <div>
-                                        <span className="text-zinc-400">Usuario:</span>{" "}
-                                        <span className="font-bold text-black">{createdCredentials.username}</span>
+                                <div className="bg-black/60 p-4 rounded-xl border border-white/10 font-mono text-xs space-y-2">
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">Usuario:</span>{" "}
+                                        <span className="font-bold text-white">{createdCredentials.username}</span>
                                     </div>
-                                    <div>
-                                        <span className="text-zinc-400">Contraseña:</span>{" "}
-                                        <span className="font-bold text-black">{createdCredentials.password}</span>
+                                    <div className="flex justify-between">
+                                        <span className="text-zinc-500">Contraseña:</span>{" "}
+                                        <span className="font-bold text-lime-400">{createdCredentials.password}</span>
                                     </div>
                                 </div>
                                 <button
@@ -443,16 +485,16 @@ export default function AdminVentasPage() {
                                         setIsModalOpen(false)
                                         resetForm()
                                     }}
-                                    className="w-full bg-emerald-700 text-white text-xs font-semibold py-2.5 rounded-lg hover:bg-emerald-800 transition-colors"
+                                    className="w-full bg-lime-400 hover:bg-lime-300 text-black text-xs font-black uppercase tracking-widest py-3 rounded-xl transition-all shadow-[0_0_15px_rgba(163,230,53,0.3)] active:scale-95"
                                 >
                                     Entendido y Cerrar
                                 </button>
                             </div>
                         ) : (
-                            /* Formulario */
+                            /* Formulario Modal */
                             <form onSubmit={handleCreateSale} className="space-y-4">
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
                                         Email del Cliente *
                                     </label>
                                     <input
@@ -461,45 +503,39 @@ export default function AdminVentasPage() {
                                         placeholder="ejemplo@cliente.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
-                                        className="w-full text-sm border border-zinc-200 bg-zinc-50 p-2.5 rounded-lg focus:outline-none focus:border-black font-medium"
+                                        className="w-full text-sm border border-white/10 bg-white/5 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium placeholder:text-zinc-600 transition-all"
                                     />
                                 </div>
 
                                 <div className="space-y-1.5">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
                                             Nombre y Apellido
                                         </label>
-                                        <span className="text-[10px] text-zinc-400 font-medium">
-                                            (Opción nuevo cliente)
+                                        <span className="text-[10px] text-zinc-500 font-semibold uppercase">
+                                            (Opcional para cliente nuevo)
                                         </span>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-semibold text-zinc-400 uppercase">Nombre</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Marisa"
-                                                value={firstName}
-                                                onChange={(e) => setFirstName(e.target.value)}
-                                                className="w-full text-sm border border-zinc-200 bg-zinc-50 p-2.5 rounded-lg focus:outline-none focus:border-black font-medium"
-                                            />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <label className="text-[10px] font-semibold text-zinc-400 uppercase">Apellido</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Gómez"
-                                                value={lastName}
-                                                onChange={(e) => setLastName(e.target.value)}
-                                                className="w-full text-sm border border-zinc-200 bg-zinc-50 p-2.5 rounded-lg focus:outline-none focus:border-black font-medium"
-                                            />
-                                        </div>
+                                        <input
+                                            type="text"
+                                            placeholder="Nombre"
+                                            value={firstName}
+                                            onChange={(e) => setFirstName(e.target.value)}
+                                            className="w-full text-sm border border-white/10 bg-white/5 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium placeholder:text-zinc-600 transition-all"
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Apellido"
+                                            value={lastName}
+                                            onChange={(e) => setLastName(e.target.value)}
+                                            className="w-full text-sm border border-white/10 bg-white/5 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium placeholder:text-zinc-600 transition-all"
+                                        />
                                     </div>
                                 </div>
 
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
                                         Teléfono (Opcional)
                                     </label>
                                     <input
@@ -507,41 +543,55 @@ export default function AdminVentasPage() {
                                         placeholder="+54 11 ..."
                                         value={phoneNumber}
                                         onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className="w-full text-sm border border-zinc-200 bg-zinc-50 p-2.5 rounded-lg focus:outline-none focus:border-black font-medium"
+                                        className="w-full text-sm border border-white/10 bg-white/5 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium placeholder:text-zinc-600 transition-all"
                                     />
                                 </div>
 
-                                <div className="space-y-1">
-                                    <label className="text-xs font-bold uppercase tracking-wider text-zinc-500">
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
                                         Equipo Adquirido *
                                     </label>
                                     <select
                                         required
                                         value={productId}
                                         onChange={(e) => setProductId(e.target.value)}
-                                        className="w-full text-sm border border-zinc-200 bg-zinc-50 p-2.5 rounded-lg focus:outline-none focus:border-black font-medium"
+                                        className="w-full text-sm border border-white/10 bg-zinc-900 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium transition-all"
                                     >
-                                        <option value="">Seleccionar equipo del catálogo...</option>
+                                        <option value="" className="bg-zinc-950 text-zinc-400">
+                                            Seleccionar equipo del catálogo...
+                                        </option>
                                         {products.map((p) => (
-                                            <option key={p.id} value={p.id}>
+                                            <option key={p.id} value={p.id} className="bg-zinc-900 text-white">
                                                 {p.brand} — {p.name}
                                             </option>
                                         ))}
                                     </select>
                                 </div>
 
-                                <div className="pt-2 flex gap-3">
+                                <div className="space-y-1.5">
+                                    <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                                        Factura PDF (Opcional)
+                                    </label>
+                                    <input
+                                        type="file"
+                                        accept="application/pdf"
+                                        onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                                        className="w-full text-xs text-zinc-400 border border-white/10 bg-white/5 rounded-xl p-3 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-lime-400 file:text-black hover:file:bg-lime-300 cursor-pointer font-medium transition-all"
+                                    />
+                                </div>
+
+                                <div className="pt-4 flex gap-3">
                                     <button
                                         type="button"
                                         onClick={() => setIsModalOpen(false)}
-                                        className="w-1/3 bg-zinc-100 text-zinc-700 text-xs font-semibold uppercase tracking-wider py-3 rounded-lg hover:bg-zinc-200 transition-colors"
+                                        className="w-1/3 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 text-xs font-bold uppercase tracking-wider py-3.5 rounded-xl transition-all"
                                     >
                                         Cancelar
                                     </button>
                                     <button
                                         type="submit"
                                         disabled={submitting}
-                                        className="w-2/3 bg-black text-white text-xs font-semibold uppercase tracking-wider py-3 rounded-lg hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                                        className="w-2/3 bg-lime-400 hover:bg-lime-300 text-black text-xs font-black uppercase tracking-widest py-3.5 rounded-xl transition-all shadow-[0_0_20px_rgba(163,230,53,0.3)] disabled:opacity-50 active:scale-95"
                                     >
                                         {submitting ? "Procesando..." : "Confirmar Venta"}
                                     </button>

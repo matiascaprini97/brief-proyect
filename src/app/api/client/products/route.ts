@@ -56,11 +56,11 @@ export async function GET() {
             brand: sale.product.brand,
             name: sale.product.name,
             details: sale.product.details,
-            // 🟢 Parseamos spareParts para que viaje como Array/Objeto al frontend
             spareParts: parseSpareParts(sale.product.spareParts),
             warrantyDays: sale.product.warrantyDays,
             photos: sale.product.photos,
             trackedSpareParts: sale.trackedSpareParts,
+            invoiceUrl: sale.invoiceUrl ?? null, // 🟢 MAPEADO DE LA FACTURA DESDE SALE
         }));
 
         return NextResponse.json(formattedProducts);

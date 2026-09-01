@@ -1,24 +1,14 @@
-import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { sendWelcomeEmail } from "@/lib/mail"
+import { NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma" // O la ruta a tu cliente de Prisma
+import { writeFile, mkdir } from "fs/promises"
+import path from "path"
 
-// ==========================================
-// GET: Listar todas las ventas con sus relaciones
-// ==========================================
+// GET: Obtener todas las ventas con sus relaciones
 export async function GET() {
     try {
         const sales = await prisma.sale.findMany({
             include: {
-                user: {
-                    select: {
-                        id: true,
-                        username: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                        phoneNumber: true,
-                    },
-                },
+                user: true,
                 product: true,
                 trackedSpareParts: true,
             },
@@ -31,162 +21,143 @@ export async function GET() {
     } catch (error) {
         console.error("Error al obtener ventas:", error)
         return NextResponse.json(
-            { error: "Ocurrió un error al consultar las ventas" },
+            { error: "Error al obtener las ventas" },
             { status: 500 }
         )
     }
 }
 
-// ==========================================
-// POST: Venta Inteligente (Auto-creación de cliente + Venta + Repuestos)
-// ==========================================
-export async function POST(req: Request) {
+// POST: Registrar nueva venta con PDF de factura opcional
+export async function POST(req: NextRequest) {
     try {
-        const body = await req.json()
-        const { email, productId, firstName, lastName, phoneNumber, createdAt } = body
+        const formData = await req.formData()
 
-        // Validaciones básicas
+        const email = formData.get("email") as string
+        const firstName = (formData.get("firstName") as string) || ""
+        const lastName = (formData.get("lastName") as string) || ""
+        const phoneNumber = (formData.get("phoneNumber") as string) || ""
+        const productId = formData.get("productId") as string
+        const invoiceFile = formData.get("invoice") as File | null
+
+        // Validación básica
         if (!email || !productId) {
             return NextResponse.json(
-                { error: "El email del cliente y el ID del producto son obligatorios." },
+                { error: "El email del cliente y el equipo son requeridos" },
                 { status: 400 }
             )
         }
 
-        // Ejecutamos todo dentro de una transacción atómica de Prisma
-        const result = await prisma.$transaction(async (tx) => {
-            const cleanEmail = email.trim().toLowerCase()
+        // 1. Guardar la factura PDF en el sistema de archivos si se proporcionó
+        let invoiceUrl: string | null = null
 
-            // 1. Buscar si el cliente ya existe por Email
-            let user = await tx.user.findUnique({
-                where: { email: cleanEmail },
-            })
+        if (invoiceFile && invoiceFile.size > 0) {
+            const bytes = await invoiceFile.arrayBuffer()
+            const buffer = Buffer.from(bytes)
 
-            let generatedCredentials = null
-            let isNewUser = false
+            // Generar nombre de archivo único
+            const timestamp = Date.now()
+            const cleanFileName = invoiceFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+            const fileName = `${timestamp}-${cleanFileName}`
 
-            // 2. Si NO existe el usuario, lo autogeneramos
-            if (!user) {
-                isNewUser = true
+            // Definir directorio de subida en /public
+            const uploadDir = path.join(process.cwd(), "public", "uploads", "invoices")
 
-                // Generar username y password expresamente para la cuenta rápida
-                const emailPrefix = cleanEmail.split("@")[0].replace(/[^a-zA-Z0-9]/g, "")
-                const randomSuffix = Math.floor(1000 + Math.random() * 9000)
-                const generatedUsername = `${emailPrefix}_${randomSuffix}`
-                const generatedPassword = `brief${Math.floor(100000 + Math.random() * 900000)}`
+            // Crear carpeta si no existe y escribir archivo
+            await mkdir(uploadDir, { recursive: true })
+            await writeFile(path.join(uploadDir, fileName), buffer)
 
-                user = await tx.user.create({
-                    data: {
-                        email: cleanEmail,
-                        username: generatedUsername,
-                        password: generatedPassword, // En producción se recomienda hashear
-                        role: "CLIENT",
-                        firstName: firstName?.trim() || emailPrefix,
-                        lastName: lastName?.trim() || "Cliente",
-                        phoneNumber: phoneNumber?.trim() || null,
-                    },
-                })
+            // Ruta pública accesible vía web
+            invoiceUrl = `/uploads/invoices/${fileName}`
+        }
 
-                generatedCredentials = {
-                    username: generatedUsername,
-                    password: generatedPassword,
-                }
-            }
-
-            // 3. Verificar que el producto exista
-            const product = await tx.product.findUnique({
-                where: { id: productId },
-            })
-
-            if (!product) {
-                throw new Error("El producto seleccionado no existe en el catálogo.")
-            }
-
-            // 4. Crear el registro de la Venta (Sale)
-            const sale = await tx.sale.create({
-                data: {
-                    userId: user.id,
-                    productId: product.id,
-                    createdAt: createdAt ? new Date(createdAt) : new Date(),
-                },
-            })
-
-            // 5. Instanciar automáticamente los repuestos en seguimiento si el producto los tiene
-            let createdSpares = []
-            if (product.spareParts) {
-                try {
-                    const sparesConfig = typeof product.spareParts === "string"
-                        ? JSON.parse(product.spareParts)
-                        : product.spareParts
-
-                    if (Array.isArray(sparesConfig) && sparesConfig.length > 0) {
-                        const sparesToCreate = sparesConfig.map((sp: { productId?: string; name?: string; lifespanDays?: number }) => ({
-                            saleId: sale.id,
-                            name: sp.name || "Repuesto Integrado",
-                            spareProductId: sp.productId || null,
-                            lifespanDays: Number(sp.lifespanDays) || 180,
-                            installedAt: new Date(), // Comienza hoy al 100%
-                        }))
-
-                        await tx.trackedSparePart.createMany({
-                            data: sparesToCreate,
-                        })
-                    }
-                } catch (jsonErr) {
-                    console.error("Error al parsear spareParts JSON:", jsonErr)
-                }
-            }
-
-            // 6. Obtener la venta completa recién creada para la respuesta
-            const fullSale = await tx.sale.findUnique({
-                where: { id: sale.id },
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            username: true,
-                            email: true,
-                            firstName: true,
-                            lastName: true,
-                        },
-                    },
-                    product: true,
-                    trackedSpareParts: true,
-                },
-            })
-
-            return {
-                sale: fullSale,
-                isNewUser,
-                generatedCredentials,
-                // Agregamos el email original al resultado para usarlo fuera de la transacción
-                email: cleanEmail
-            }
+        // 2. Buscar si el usuario ya existe o crearlo si es nuevo
+        let user = await prisma.user.findUnique({
+            where: { email },
         })
-        // 👈 NUEVO: Una vez que la transacción terminó bien, si era usuario nuevo, mandamos el mail
-        if (result.isNewUser && result.generatedCredentials) {
-            sendWelcomeEmail(
-                result.email,
-                result.generatedCredentials.username,
-                result.generatedCredentials.password
-            ).catch(err =>
-                console.error("Error asíncrono mandando mail de auto-creación:", err)
+
+        let generatedCredentials = null
+        let isNewUser = false
+
+        if (!user) {
+            isNewUser = true
+            // Generar contraseña temporal de 8 caracteres
+            const generatedPassword = Math.random().toString(36).slice(-8)
+            const username = email.split("@")[0] + Math.floor(1000 + Math.random() * 9000)
+
+            user = await prisma.user.create({
+                data: {
+                    email,
+                    username,
+                    password: generatedPassword, // NOTA: Aplica tu función de hash de contraseña aquí si corresponde
+                    firstName: firstName || null,
+                    lastName: lastName || null,
+                    phoneNumber: phoneNumber || null,
+                    role: "CLIENT",
+                },
+            })
+
+            generatedCredentials = {
+                username: user.username,
+                password: generatedPassword,
+            }
+        }
+
+        // 3. Buscar el producto para obtener repuestos asociados
+        const product = await prisma.product.findUnique({
+            where: { id: productId },
+        })
+
+        if (!product) {
+            return NextResponse.json(
+                { error: "El producto/equipo seleccionado no existe" },
+                { status: 404 }
             )
         }
 
+        // Parsear repuestos asociados si los tiene guardados en JSON
+        let initialSpares: { name: string; defaultLifespanDays?: number; lifespanDays?: number; spareProductId?: string }[] = []
+        if (product.spareParts) {
+            try {
+                initialSpares = JSON.parse(product.spareParts)
+            } catch (err) {
+                console.error("Error parseando repuestos del producto:", err)
+            }
+        }
+
+        // 4. Crear la venta e inicializar los repuestos a monitorear
+        const sale = await prisma.sale.create({
+            data: {
+                userId: user.id,
+                productId: product.id,
+                invoiceUrl,
+                trackedSpareParts: {
+                    create: initialSpares.map((spare) => ({
+                        name: spare.name,
+                        lifespanDays: spare.lifespanDays || spare.defaultLifespanDays || 180,
+                        spareProductId: spare.spareProductId || null,
+                    })),
+                },
+            },
+            include: {
+                user: true,
+                product: true,
+                trackedSpareParts: true,
+            },
+        })
+
         return NextResponse.json(
             {
-                message: result.isNewUser
-                    ? "Venta registrada y nuevo cliente creado con éxito."
-                    : "Venta registrada para el cliente existente.",
-                ...result,
+                message: "Venta registrada con éxito",
+                sale,
+                isNewUser,
+                generatedCredentials,
             },
             { status: 201 }
         )
     } catch (error: any) {
-        console.error("Error en POST /api/sales:", error)
+        console.error("Error al registrar la venta:", error)
         return NextResponse.json(
-            { error: error.message || "Error al procesar la venta inteligente" },
+            { error: error.message || "Ocurrió un error interno al procesar la venta" },
             { status: 500 }
         )
     }

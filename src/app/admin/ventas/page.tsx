@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import Link from "next/link"
 import Navbar from "@/components/Navbar"
 
@@ -36,12 +36,33 @@ interface Sale {
     invoiceUrl?: string
 }
 
+interface SelectedItem {
+    productId: string
+    quantity: number
+    searchQuery?: string // Añadido para el filtro individual por fila
+}
+
+// Estructura agrupada para renderizar 1 tarjeta por transacción
+interface GroupedSale {
+    groupId: string
+    createdAt: string
+    user: User
+    invoiceUrl?: string
+    sales: Sale[]
+    totalItems: number
+    productSummary: { name: string; count: number }[]
+}
+
 export default function AdminVentasPage() {
     const [profilePicture, setProfilePicture] = useState<string | null>(null)
     const [sales, setSales] = useState<Sale[]>([])
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
+
+    // Estados de Filtro y Ordenamiento
     const [searchTerm, setSearchTerm] = useState("")
+    const [sortBy, setSortBy] = useState<"newest" | "oldest" | "client">("newest")
+    const [dateRange, setDateRange] = useState<"all" | "today" | "7days" | "30days">("all")
 
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [submitting, setSubmitting] = useState(false)
@@ -49,15 +70,18 @@ export default function AdminVentasPage() {
     const [firstName, setFirstName] = useState("")
     const [lastName, setLastName] = useState("")
     const [phoneNumber, setPhoneNumber] = useState("")
-    const [productId, setProductId] = useState("")
-    const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
 
+    const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
+        { productId: "", quantity: 1, searchQuery: "" }
+    ])
+
+    const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
     const [createdCredentials, setCreatedCredentials] = useState<{
         username: string
         password: string
     } | null>(null)
 
-    const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null)
+    const [expandedGroupId, setExpandedGroupId] = useState<string | null>(null)
 
     useEffect(() => {
         fetchProfile()
@@ -104,10 +128,27 @@ export default function AdminVentasPage() {
         }
     }
 
+    const handleAddItem = () => {
+        setSelectedItems([...selectedItems, { productId: "", quantity: 1, searchQuery: "" }])
+    }
+
+    const handleRemoveItem = (index: number) => {
+        if (selectedItems.length === 1) return
+        setSelectedItems(selectedItems.filter((_, i) => i !== index))
+    }
+
+    const handleItemChange = (index: number, field: keyof SelectedItem, value: any) => {
+        const updated = [...selectedItems]
+        updated[index] = { ...updated[index], [field]: value }
+        setSelectedItems(updated)
+    }
+
     const handleCreateSale = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!email || !productId) {
-            alert("Por favor completa el email y selecciona un producto.")
+
+        const hasValidProducts = selectedItems.every(item => item.productId !== "")
+        if (!email || !hasValidProducts) {
+            alert("Por favor completa el email y selecciona un producto para cada línea.")
             return
         }
 
@@ -120,7 +161,11 @@ export default function AdminVentasPage() {
             formData.append("firstName", firstName)
             formData.append("lastName", lastName)
             formData.append("phoneNumber", phoneNumber)
-            formData.append("productId", productId)
+
+            // Mapeamos para solo enviar productId y quantity a la API
+            const itemsToSubmit = selectedItems.map(({ productId, quantity }) => ({ productId, quantity }))
+            formData.append("items", JSON.stringify(itemsToSubmit))
+
             if (invoiceFile) {
                 formData.append("invoice", invoiceFile)
             }
@@ -139,7 +184,7 @@ export default function AdminVentasPage() {
             if (data.isNewUser && data.generatedCredentials) {
                 setCreatedCredentials(data.generatedCredentials)
             } else {
-                alert(data.message || "Venta registrada con éxito")
+                alert(data.message || "Venta(s) registrada(s) con éxito")
                 setIsModalOpen(false)
                 resetForm()
             }
@@ -191,7 +236,7 @@ export default function AdminVentasPage() {
         setFirstName("")
         setLastName("")
         setPhoneNumber("")
-        setProductId("")
+        setSelectedItems([{ productId: "", quantity: 1, searchQuery: "" }])
         setInvoiceFile(null)
         setCreatedCredentials(null)
     }
@@ -209,13 +254,85 @@ export default function AdminVentasPage() {
         return { daysElapsed, percentRemaining, color }
     }
 
-    const filteredSales = sales.filter((sale) => {
-        const query = searchTerm.toLowerCase()
-        const clientName = `${sale.user?.firstName || ""} ${sale.user?.lastName || ""}`.toLowerCase()
-        const clientEmail = (sale.user?.email || "").toLowerCase()
-        const productName = (sale.product?.name || "").toLowerCase()
-        return clientName.includes(query) || clientEmail.includes(query) || productName.includes(query)
-    })
+    // 1. AGRUPACIÓN DINÁMICA POR TRANSACCIÓN DE COMPRA
+    const groupedSales = useMemo(() => {
+        const groupsMap = new Map<string, GroupedSale>()
+
+        sales.forEach((sale) => {
+            // Clave única basada en Usuario + Factura o Timestamp aproximado (mismo minuto)
+            const dateMinutes = new Date(sale.createdAt).toISOString().slice(0, 16)
+            const key = sale.invoiceUrl
+                ? `${sale.user?.id}-${sale.invoiceUrl}`
+                : `${sale.user?.id}-${dateMinutes}`
+
+            if (!groupsMap.has(key)) {
+                groupsMap.set(key, {
+                    groupId: key,
+                    createdAt: sale.createdAt,
+                    user: sale.user,
+                    invoiceUrl: sale.invoiceUrl,
+                    sales: [],
+                    totalItems: 0,
+                    productSummary: [],
+                })
+            }
+
+            const group = groupsMap.get(key)!
+            group.sales.push(sale)
+            group.totalItems += 1
+
+            // Conteo resumido de tipos de equipos en la compra
+            const prodName = sale.product?.name || "Equipo"
+            const existingSummary = group.productSummary.find((p) => p.name === prodName)
+            if (existingSummary) {
+                existingSummary.count += 1
+            } else {
+                group.productSummary.push({ name: prodName, count: 1 })
+            }
+        })
+
+        return Array.from(groupsMap.values())
+    }, [sales])
+
+    // 2. FILTRADO Y ORDENAMIENTO
+    const filteredAndSortedGroups = useMemo(() => {
+        return groupedSales
+            .filter((group) => {
+                // Filtro por búsqueda de texto
+                const query = searchTerm.toLowerCase()
+                const clientName = `${group.user?.firstName || ""} ${group.user?.lastName || ""}`.toLowerCase()
+                const clientEmail = (group.user?.email || "").toLowerCase()
+                const productsText = group.productSummary.map((p) => p.name).join(" ").toLowerCase()
+                const matchesSearch = clientName.includes(query) || clientEmail.includes(query) || productsText.includes(query)
+
+                // Filtro por Fecha
+                const saleDate = new Date(group.createdAt).getTime()
+                const now = Date.now()
+                const daysDiff = (now - saleDate) / (1000 * 60 * 60 * 24)
+
+                let matchesDate = true
+                if (dateRange === "today") matchesDate = daysDiff <= 1
+                else if (dateRange === "7days") matchesDate = daysDiff <= 7
+                else if (dateRange === "30days") matchesDate = daysDiff <= 30
+
+                return matchesSearch && matchesDate
+            })
+            .sort((a, b) => {
+                // Ordenamiento
+                if (sortBy === "newest") {
+                    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+                }
+                if (sortBy === "oldest") {
+                    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+                }
+                if (sortBy === "client") {
+                    const nameA = `${a.user?.firstName || ""} ${a.user?.lastName || ""}`.toLowerCase()
+                    const nameB = `${b.user?.firstName || ""} ${b.user?.lastName || ""}`.toLowerCase()
+                    return nameA.localeCompare(nameB)
+                }
+                return 0
+            })
+    }, [groupedSales, searchTerm, sortBy, dateRange])
 
     return (
         <div className="flex min-h-screen flex-col bg-black text-white antialiased font-sans selection:bg-lime-400 selection:text-black">
@@ -250,83 +367,101 @@ export default function AdminVentasPage() {
                     </button>
                 </div>
 
-                {/* Buscador Glassmorphic */}
-                <div className="mb-6 relative">
-                    <input
-                        type="text"
-                        placeholder="Buscar por cliente, email o equipo..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full text-sm border border-white/10 bg-white/5 text-white px-5 py-3.5 rounded-2xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 shadow-2xl backdrop-blur-xl font-medium transition-all placeholder:text-zinc-500"
-                    />
+                {/* BARRA DE BÚSQUEDA Y FILTROS */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-6">
+                    {/* Búsqueda */}
+                    <div className="sm:col-span-6 relative">
+                        <input
+                            type="text"
+                            placeholder="Buscar cliente, email o producto..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full text-sm border border-white/10 bg-white/5 text-white px-5 py-3 rounded-2xl focus:outline-none focus:border-lime-400 font-medium transition-all placeholder:text-zinc-500"
+                        />
+                    </div>
+
+                    {/* Filtro por Rango de Fecha */}
+                    <div className="sm:col-span-3">
+                        <select
+                            value={dateRange}
+                            onChange={(e) => setDateRange(e.target.value as any)}
+                            className="w-full text-sm border border-white/10 bg-zinc-900 text-white px-4 py-3 rounded-2xl focus:outline-none focus:border-lime-400 font-medium"
+                        >
+                            <option value="all">Todas las fechas</option>
+                            <option value="today">Últimas 24 horas</option>
+                            <option value="7days">Últimos 7 días</option>
+                            <option value="30days">Últimos 30 días</option>
+                        </select>
+                    </div>
+
+                    {/* Ordenamiento */}
+                    <div className="sm:col-span-3">
+                        <select
+                            value={sortBy}
+                            onChange={(e) => setSortBy(e.target.value as any)}
+                            className="w-full text-sm border border-white/10 bg-zinc-900 text-white px-4 py-3 rounded-2xl focus:outline-none focus:border-lime-400 font-medium"
+                        >
+                            <option value="newest">Más recientes primero</option>
+                            <option value="oldest">Más antiguas primero</option>
+                            <option value="client">Cliente (A - Z)</option>
+                        </select>
+                    </div>
                 </div>
 
-                {/* Tabla / Lista de Ventas Glassmorphic */}
+                {/* Tabla de Ventas Agrupadas */}
                 <div className="border border-white/10 bg-white/5 backdrop-blur-2xl rounded-3xl shadow-2xl overflow-hidden">
                     {loading ? (
                         <div className="p-16 text-center text-xs text-zinc-400 font-bold uppercase tracking-widest animate-pulse">
                             Cargando consola de ventas...
                         </div>
-                    ) : filteredSales.length === 0 ? (
+                    ) : filteredAndSortedGroups.length === 0 ? (
                         <div className="p-16 text-center text-xs text-zinc-500 font-medium">
-                            No se encontraron ventas registradas.
+                            No se encontraron ventas asociadas a los filtros seleccionados.
                         </div>
                     ) : (
                         <div className="divide-y divide-white/10">
-                            {filteredSales.map((sale) => {
-                                const isExpanded = expandedSaleId === sale.id
-                                const partsCount = sale.trackedSpareParts?.length || 0
+                            {filteredAndSortedGroups.map((group, groupIdx) => {
+                                const isExpanded = expandedGroupId === group.groupId
 
                                 return (
-                                    <div key={sale.id} className="transition-all hover:bg-white/[0.02]">
-                                        {/* Grid Unificado de Columnas para alineación perfecta */}
+                                    <div key={`group-${group.groupId}-${groupIdx}`} className="transition-all hover:bg-white/[0.02]">
                                         <div className="p-6 grid grid-cols-1 md:grid-cols-12 gap-4 md:items-center">
 
-                                            {/* Columna 1: Info Cliente (3 Cols) */}
+                                            {/* Cliente */}
                                             <div className="md:col-span-3 space-y-0.5 min-w-0">
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">
                                                     Cliente
                                                 </span>
                                                 <div className="text-sm font-bold text-white truncate">
-                                                    {sale.user?.firstName || "Cliente"} {sale.user?.lastName || ""}
+                                                    {group.user?.firstName || "Cliente"} {group.user?.lastName || ""}
                                                 </div>
                                                 <div className="text-xs text-zinc-400 font-mono truncate">
-                                                    {sale.user?.email}
+                                                    {group.user?.email}
                                                 </div>
                                             </div>
 
-                                            {/* Columna 2: Info Equipo (3 Cols) */}
-                                            <div className="md:col-span-3 space-y-0.5 min-w-0">
+                                            {/* Resumen de Compra (Productos y Cantidad) */}
+                                            <div className="md:col-span-4 space-y-0.5 min-w-0">
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">
-                                                    Equipo Adquirido
+                                                    Resumen de Orden ({group.totalItems} {group.totalItems === 1 ? "unidad" : "unidades"})
                                                 </span>
-                                                <div className="text-sm font-bold text-lime-400 truncate">
-                                                    {sale.product?.name}
+                                                <div className="text-sm font-bold text-lime-400 truncate flex flex-wrap gap-1.5">
+                                                    {group.productSummary.map((item, pIdx) => (
+                                                        <span key={`summary-${pIdx}`} className="bg-lime-400/10 text-lime-400 border border-lime-400/20 px-2 py-0.5 rounded-lg text-xs">
+                                                            {item.count}x {item.name}
+                                                        </span>
+                                                    ))}
                                                 </div>
                                                 <div className="text-[11px] text-zinc-400">
-                                                    {new Date(sale.createdAt).toLocaleDateString()}
+                                                    Fecha: {new Date(group.createdAt).toLocaleString()}
                                                 </div>
                                             </div>
 
-                                            {/* Columna 3: Badge Componentes (2 Cols) */}
-                                            <div className="md:col-span-2 space-y-1">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">
-                                                    Componentes
-                                                </span>
-                                                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white/5 border border-white/10 text-zinc-200 backdrop-blur-md whitespace-nowrap">
-                                                    <svg className="w-3.5 h-3.5 text-lime-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                                    </svg>
-                                                    <span>{partsCount} {partsCount === 1 ? "Pieza" : "Piezas"}</span>
-                                                </div>
-                                            </div>
-
-                                            {/* Columna 4: Botones de Acción Normalizados (4 Cols) */}
-                                            <div className="md:col-span-4 flex items-center md:justify-end gap-2 pt-2 md:pt-0 flex-wrap shrink-0">
-                                                {sale.invoiceUrl && (
+                                            {/* Botones de Acción */}
+                                            <div className="md:col-span-5 flex items-center md:justify-end gap-2 pt-2 md:pt-0 flex-wrap shrink-0">
+                                                {group.invoiceUrl && (
                                                     <a
-                                                        href={sale.invoiceUrl}
+                                                        href={group.invoiceUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         className="h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-white/5 border border-white/10 hover:border-lime-400/50 hover:text-lime-400 text-zinc-200 transition-all inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
@@ -336,12 +471,12 @@ export default function AdminVentasPage() {
                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V7.5L14.5 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M14 3v5h5M9 13h6M9 17h4" />
                                                         </svg>
-                                                        <span>Factura</span>
+                                                        <span>Factura PDF</span>
                                                     </a>
                                                 )}
 
                                                 <button
-                                                    onClick={() => setExpandedSaleId(isExpanded ? null : sale.id)}
+                                                    onClick={() => setExpandedGroupId(isExpanded ? null : group.groupId)}
                                                     className={`h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all border inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${isExpanded
                                                         ? "bg-lime-400 text-black border-lime-400 shadow-[0_0_15px_rgba(163,230,53,0.3)]"
                                                         : "bg-white/5 border-white/10 hover:border-lime-400/50 hover:text-lime-400 text-zinc-200"
@@ -350,84 +485,77 @@ export default function AdminVentasPage() {
                                                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
                                                     </svg>
-                                                    <span>{isExpanded ? "Ocultar Repuestos" : "Gestionar Repuestos"}</span>
-                                                </button>
-
-                                                <button
-                                                    onClick={() => handleDeleteSale(sale.id)}
-                                                    className="h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500 hover:text-white text-rose-400 transition-all inline-flex items-center shrink-0 whitespace-nowrap"
-                                                    title="Eliminar venta"
-                                                >
-                                                    Eliminar
+                                                    <span>{isExpanded ? "Ocultar Detalle" : `Ver Detalle (${group.totalItems})`}</span>
                                                 </button>
                                             </div>
 
                                         </div>
 
-                                        {/* PANEL DESPLEGABLE DE REPUESTOS */}
+                                        {/* DESGLOSE INDIVIDUAL DE UNIDADES Y SUS REPUESTOS */}
                                         {isExpanded && (
-                                            <div className="bg-black/80 border-t border-white/10 p-6 md:p-8 backdrop-blur-2xl space-y-5 animate-in fade-in duration-200">
-                                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-4">
-                                                    <div className="flex items-center gap-2">
+                                            <div className="bg-black/80 border-t border-white/10 p-6 md:p-8 backdrop-blur-2xl space-y-6 animate-in fade-in duration-200">
+                                                <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                                                    <h3 className="text-xs font-black uppercase tracking-widest text-lime-400 flex items-center gap-2">
                                                         <span className="h-2 w-2 rounded-full bg-lime-400 animate-pulse" />
-                                                        <h3 className="text-xs font-black uppercase tracking-widest text-lime-400">
-                                                            Monitoreo y Reposición — {sale.product?.name}
-                                                        </h3>
-                                                    </div>
-                                                    <span className="text-[10px] text-zinc-500 font-mono tracking-wider">
-                                                        ID VENTA: {sale.id.slice(0, 8)}...
-                                                    </span>
+                                                        Desglose de la Orden ({group.totalItems} Equipos monitoreados)
+                                                    </h3>
                                                 </div>
 
-                                                {partsCount === 0 ? (
-                                                    <p className="text-xs text-zinc-500 italic py-4 text-center">
-                                                        Este equipo no tiene repuestos configurados para monitoreo activo.
-                                                    </p>
-                                                ) : (
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                        {sale.trackedSpareParts.map((part) => {
-                                                            const { daysElapsed, percentRemaining, color } = calculateLifespan(
-                                                                part.installedAt,
-                                                                part.lifespanDays
-                                                            )
-
-                                                            return (
-                                                                <div
-                                                                    key={part.id}
-                                                                    className="bg-white/5 border border-white/10 backdrop-blur-md rounded-2xl p-5 space-y-4 hover:border-lime-400/30 transition-all group"
-                                                                >
-                                                                    <div className="flex items-start justify-between gap-2">
-                                                                        <div>
-                                                                            <h4 className="text-xs font-extrabold uppercase tracking-wide text-white group-hover:text-lime-300 transition-colors">
-                                                                                {part.name}
-                                                                            </h4>
-                                                                            <p className="text-[11px] text-zinc-400 mt-1">
-                                                                                Uso: <span className="text-white font-mono font-bold">{daysElapsed} días</span> / Máx {part.lifespanDays} días
-                                                                            </p>
-                                                                        </div>
-                                                                        <span className="text-sm font-black font-mono text-lime-400">
-                                                                            {percentRemaining}%
-                                                                        </span>
-                                                                    </div>
-
-                                                                    <div className="w-full bg-white/10 h-2.5 rounded-full overflow-hidden p-0.5 border border-white/5">
-                                                                        <div
-                                                                            className={`h-full rounded-full ${color} transition-all duration-500`}
-                                                                            style={{ width: `${percentRemaining}%` }}
-                                                                        />
-                                                                    </div>
-
-                                                                    <button
-                                                                        onClick={() => handleResetPart(part.id)}
-                                                                        className="w-full text-center bg-lime-400/10 border border-lime-400/30 hover:bg-lime-400 hover:text-black text-lime-400 text-[11px] font-black tracking-widest uppercase py-2.5 rounded-xl transition-all shadow-[0_0_15px_rgba(163,230,53,0.1)] hover:shadow-[0_0_20px_rgba(163,230,53,0.4)] active:scale-95"
-                                                                    >
-                                                                        ⚡ Reponer / Resetear al 100%
-                                                                    </button>
+                                                <div className="space-y-4">
+                                                    {group.sales.map((saleItem, sIdx) => (
+                                                        <div key={`sale-unit-${saleItem.id}-${sIdx}`} className="bg-white/5 border border-white/10 rounded-2xl p-5 space-y-4">
+                                                            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+                                                                <div>
+                                                                    <span className="text-[10px] font-bold uppercase text-zinc-500">Unidad #{sIdx + 1}</span>
+                                                                    <h4 className="text-sm font-bold text-white">{saleItem.product?.name}</h4>
+                                                                    <span className="text-[10px] text-zinc-500 font-mono">ID Venta: {saleItem.id}</span>
                                                                 </div>
-                                                            )
-                                                        })}
-                                                    </div>
-                                                )}
+
+                                                                <button
+                                                                    onClick={() => handleDeleteSale(saleItem.id)}
+                                                                    className="px-3 py-1 rounded-lg text-[10px] font-bold uppercase bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all"
+                                                                >
+                                                                    Eliminar Unidad
+                                                                </button>
+                                                            </div>
+
+                                                            {/* Repuestos de la unidad */}
+                                                            {saleItem.trackedSpareParts?.length === 0 ? (
+                                                                <p className="text-xs text-zinc-500 italic">Sin repuestos en seguimiento.</p>
+                                                            ) : (
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                                                    {saleItem.trackedSpareParts?.map((part, pIdx) => {
+                                                                        const { daysElapsed, percentRemaining, color } = calculateLifespan(
+                                                                            part.installedAt,
+                                                                            part.lifespanDays
+                                                                        )
+
+                                                                        return (
+                                                                            <div key={`part-unit-${part.id}-${pIdx}`} className="bg-black/50 border border-white/10 rounded-xl p-3 space-y-2">
+                                                                                <div className="flex justify-between text-xs">
+                                                                                    <span className="font-bold text-zinc-200">{part.name}</span>
+                                                                                    <span className="font-mono text-lime-400 font-bold">{percentRemaining}%</span>
+                                                                                </div>
+                                                                                <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden">
+                                                                                    <div className={`h-full ${color}`} style={{ width: `${percentRemaining}%` }} />
+                                                                                </div>
+                                                                                <div className="flex justify-between items-center pt-1">
+                                                                                    <span className="text-[10px] text-zinc-500 font-mono">{daysElapsed}/{part.lifespanDays} d</span>
+                                                                                    <button
+                                                                                        onClick={() => handleResetPart(part.id)}
+                                                                                        className="text-[10px] font-black uppercase text-lime-400 hover:underline"
+                                                                                    >
+                                                                                        ⚡ Reset
+                                                                                    </button>
+                                                                                </div>
+                                                                            </div>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -438,12 +566,11 @@ export default function AdminVentasPage() {
                 </div>
             </main>
 
-            {/* MODAL: Venta Inteligente */}
+            {/* MODAL MANTENIDO INTACTO */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
                     <div className="bg-zinc-950/90 border border-white/15 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-[0_0_60px_rgba(163,230,53,0.12)] backdrop-blur-2xl space-y-6 max-h-[90vh] overflow-y-auto">
 
-                        {/* Header Modal */}
                         <div className="flex items-center justify-between border-b border-white/10 pb-4">
                             <div>
                                 <h2 className="text-lg font-black uppercase tracking-wider text-white flex items-center gap-2">
@@ -461,7 +588,6 @@ export default function AdminVentasPage() {
                             </button>
                         </div>
 
-                        {/* Cartel de Credenciales Autogeneradas */}
                         {createdCredentials ? (
                             <div className="bg-lime-950/40 border border-lime-500/50 p-6 rounded-2xl space-y-4 shadow-[0_0_25px_rgba(163,230,53,0.15)]">
                                 <div className="flex items-center gap-2 text-lime-400 font-extrabold text-xs uppercase tracking-wider">
@@ -491,7 +617,6 @@ export default function AdminVentasPage() {
                                 </button>
                             </div>
                         ) : (
-                            /* Formulario Modal */
                             <form onSubmit={handleCreateSale} className="space-y-4">
                                 <div className="space-y-1.5">
                                     <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
@@ -547,25 +672,78 @@ export default function AdminVentasPage() {
                                     />
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
-                                        Equipo Adquirido *
-                                    </label>
-                                    <select
-                                        required
-                                        value={productId}
-                                        onChange={(e) => setProductId(e.target.value)}
-                                        className="w-full text-sm border border-white/10 bg-zinc-900 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium transition-all"
-                                    >
-                                        <option value="" className="bg-zinc-950 text-zinc-400">
-                                            Seleccionar equipo del catálogo...
-                                        </option>
-                                        {products.map((p) => (
-                                            <option key={p.id} value={p.id} className="bg-zinc-900 text-white">
-                                                {p.brand} — {p.name}
-                                            </option>
-                                        ))}
-                                    </select>
+                                {/* SECCIÓN DE PRODUCTOS DINÁMICOS CON BÚSQUEDA INTEGRADAS */}
+                                <div className="space-y-3 pt-2">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                                            Artículos Adquiridos *
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={handleAddItem}
+                                            className="text-[11px] font-bold text-lime-400 hover:text-lime-300 transition-colors"
+                                        >
+                                            + Agregar otro artículo
+                                        </button>
+                                    </div>
+
+                                    {selectedItems.map((item, index) => {
+                                        const query = (item.searchQuery || "").toLowerCase()
+                                        const filteredProducts = products.filter(
+                                            (p) => p.name.toLowerCase().includes(query) || p.brand.toLowerCase().includes(query)
+                                        )
+
+                                        return (
+                                            <div key={`selected-item-row-${index}`} className="p-3 border border-white/10 bg-white/5 rounded-2xl space-y-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="🔍 Buscar artículo por nombre o marca..."
+                                                    value={item.searchQuery || ""}
+                                                    onChange={(e) => handleItemChange(index, "searchQuery", e.target.value)}
+                                                    className="w-full text-xs border border-white/10 bg-black/40 text-white px-3 py-2 rounded-xl focus:outline-none focus:border-lime-400 font-medium placeholder:text-zinc-500 transition-all"
+                                                />
+
+                                                <div className="flex items-center gap-2 w-full">
+                                                    <select
+                                                        required
+                                                        value={item.productId}
+                                                        onChange={(e) => handleItemChange(index, "productId", e.target.value)}
+                                                        className="flex-1 min-w-0 text-sm border border-white/10 bg-zinc-900 text-white px-3 py-2 rounded-xl focus:outline-none focus:border-lime-400 font-medium truncate"
+                                                    >
+                                                        <option value="" className="bg-zinc-950 text-zinc-400">
+                                                            {filteredProducts.length === 0
+                                                                ? "Sin resultados..."
+                                                                : "Seleccionar equipo..."}
+                                                        </option>
+                                                        {filteredProducts.map((p, pIdx) => (
+                                                            <option key={`product-opt-${p.id}-${pIdx}`} value={p.id} className="bg-zinc-900 text-white">
+                                                                {p.brand} — {p.name}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        value={item.quantity}
+                                                        onChange={(e) => handleItemChange(index, "quantity", parseInt(e.target.value) || 1)}
+                                                        className="w-14 shrink-0 text-sm border border-white/10 bg-white/5 text-white px-2 py-2 rounded-xl text-center focus:outline-none focus:border-lime-400 font-bold"
+                                                    />
+
+                                                    {selectedItems.length > 1 && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleRemoveItem(index)}
+                                                            className="shrink-0 p-2 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all text-xs"
+                                                            title="Eliminar ítem"
+                                                        >
+                                                            ✕
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
                                 </div>
 
                                 <div className="space-y-1.5">

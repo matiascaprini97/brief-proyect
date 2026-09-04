@@ -33,6 +33,9 @@ export default function AdminProductosPage() {
     const [products, setProducts] = useState<Product[]>([])
     const [loading, setLoading] = useState(true)
 
+    // Estado para Búsqueda por Nombre
+    const [searchQuery, setSearchQuery] = useState("")
+
     // Estados para Ordenamiento
     const [sortField, setSortField] = useState<SortField>('name')
     const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
@@ -93,7 +96,7 @@ export default function AdminProductosPage() {
         }
     }
 
-    // Lógica de Ordenamiento
+    // Lógica de Ordenamiento y Filtrado por Búsqueda
     const handleSort = (field: SortField) => {
         if (sortField === field) {
             setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))
@@ -103,23 +106,33 @@ export default function AdminProductosPage() {
         }
     }
 
-    const sortedProducts = useMemo(() => {
-        return [...products].sort((a, b) => {
-            let comparison = 0
+    const filteredAndSortedProducts = useMemo(() => {
+        return products
+            .filter((product) => {
+                const query = searchQuery.toLowerCase().trim()
+                if (!query) return true
+                return (
+                    product.name.toLowerCase().includes(query) ||
+                    product.brand.toLowerCase().includes(query) ||
+                    product.details.toLowerCase().includes(query)
+                )
+            })
+            .sort((a, b) => {
+                let comparison = 0
 
-            if (sortField === 'name') {
-                comparison = a.name.localeCompare(b.name)
-            } else if (sortField === 'isSpare') {
-                comparison = Number(a.isSpare) - Number(b.isSpare)
-            } else if (sortField === 'lifespan') {
-                const valA = a.isSpare ? a.defaultLifespanDays : a.warrantyDays
-                const valB = b.isSpare ? b.defaultLifespanDays : b.warrantyDays
-                comparison = valA - valB
-            }
+                if (sortField === 'name') {
+                    comparison = a.name.localeCompare(b.name)
+                } else if (sortField === 'isSpare') {
+                    comparison = Number(a.isSpare) - Number(b.isSpare)
+                } else if (sortField === 'lifespan') {
+                    const valA = a.isSpare ? a.defaultLifespanDays : a.warrantyDays
+                    const valB = b.isSpare ? b.defaultLifespanDays : b.warrantyDays
+                    comparison = valA - valB
+                }
 
-            return sortOrder === 'asc' ? comparison : -comparison
-        })
-    }, [products, sortField, sortOrder])
+                return sortOrder === 'asc' ? comparison : -comparison
+            })
+    }, [products, searchQuery, sortField, sortOrder])
 
     // UX: Al elegir un repuesto del dropdown, sugerir automáticamente su vida útil por defecto
     const handleSpareSelectChange = (id: string) => {
@@ -157,10 +170,10 @@ export default function AdminProductosPage() {
     }
 
     const handleSelectAll = () => {
-        if (selectedIds.length === products.length) {
+        if (selectedIds.length === filteredAndSortedProducts.length) {
             setSelectedIds([])
         } else {
-            setSelectedIds(products.map((p) => p.id))
+            setSelectedIds(filteredAndSortedProducts.map((p) => p.id))
         }
     }
 
@@ -342,6 +355,25 @@ export default function AdminProductosPage() {
                     )}
                 </div>
 
+                {/* BARRA DE BÚSQUEDA */}
+                <div className="mb-6 relative">
+                    <input
+                        type="text"
+                        placeholder="Buscar por nombre, marca o especificaciones..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-zinc-900/60 border border-zinc-800 text-zinc-100 text-xs rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 transition-colors placeholder:text-zinc-600"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs text-zinc-500 hover:text-zinc-300 font-bold"
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
+
                 {/* TABLA PRINCIPAL DARK GLASSMORPHISM */}
                 <div className="border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-900/50 backdrop-blur-md shadow-2xl">
                     <table className="w-full text-left border-collapse">
@@ -351,7 +383,7 @@ export default function AdminProductosPage() {
                                     <input
                                         type="checkbox"
                                         className="rounded border-zinc-700 bg-zinc-800 text-lime-400 focus:ring-lime-400/50 cursor-pointer w-4 h-4 accent-lime-400"
-                                        checked={products.length > 0 && selectedIds.length === products.length}
+                                        checked={filteredAndSortedProducts.length > 0 && selectedIds.length === filteredAndSortedProducts.length}
                                         onChange={handleSelectAll}
                                     />
                                 </th>
@@ -392,12 +424,14 @@ export default function AdminProductosPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : sortedProducts.length === 0 ? (
+                            ) : filteredAndSortedProducts.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="p-12 text-center text-zinc-500 text-xs font-medium">No hay registros cargados.</td>
+                                    <td colSpan={5} className="p-12 text-center text-zinc-500 text-xs font-medium">
+                                        {searchQuery ? `No se encontraron resultados para "${searchQuery}"` : "No hay registros cargados."}
+                                    </td>
                                 </tr>
                             ) : (
-                                sortedProducts.map((product) => {
+                                filteredAndSortedProducts.map((product) => {
                                     const mainPhoto = product.photos && product.photos.length > 0 ? product.photos[0] : null;
 
                                     let parsedSpares: AssociatedSpare[] = []

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma" // O la ruta a tu cliente de Prisma
+import { prisma } from "@/lib/prisma"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
 
@@ -27,7 +27,7 @@ export async function GET() {
     }
 }
 
-// POST: Registrar nueva venta con PDF de factura opcional
+// POST: Registrar nueva(s) venta(s) con múltiples artículos y PDF de factura opcional
 export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData()
@@ -36,13 +36,30 @@ export async function POST(req: NextRequest) {
         const firstName = (formData.get("firstName") as string) || ""
         const lastName = (formData.get("lastName") as string) || ""
         const phoneNumber = (formData.get("phoneNumber") as string) || ""
-        const productId = formData.get("productId") as string
+        const itemsRaw = formData.get("items") as string // Recibe JSON de productos: [{ productId, quantity }]
         const invoiceFile = formData.get("invoice") as File | null
 
         // Validación básica
-        if (!email || !productId) {
+        if (!email || !itemsRaw) {
             return NextResponse.json(
-                { error: "El email del cliente y el equipo son requeridos" },
+                { error: "El email del cliente y los artículos son requeridos" },
+                { status: 400 }
+            )
+        }
+
+        let items: { productId: string; quantity: number }[] = []
+        try {
+            items = JSON.parse(itemsRaw)
+        } catch (e) {
+            return NextResponse.json(
+                { error: "El formato de los artículos no es válido" },
+                { status: 400 }
+            )
+        }
+
+        if (items.length === 0) {
+            return NextResponse.json(
+                { error: "Debes incluir al menos un artículo" },
                 { status: 400 }
             )
         }
@@ -88,7 +105,7 @@ export async function POST(req: NextRequest) {
                 data: {
                     email,
                     username,
-                    password: generatedPassword, // NOTA: Aplica tu función de hash de contraseña aquí si corresponde
+                    password: generatedPassword,
                     firstName: firstName || null,
                     lastName: lastName || null,
                     phoneNumber: phoneNumber || null,
@@ -102,53 +119,58 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 3. Buscar el producto para obtener repuestos asociados
-        const product = await prisma.product.findUnique({
-            where: { id: productId },
-        })
+        // 3. Recorrer los artículos y crear las ventas con sus respectivos repuestos
+        const createdSales = []
 
-        if (!product) {
-            return NextResponse.json(
-                { error: "El producto/equipo seleccionado no existe" },
-                { status: 404 }
-            )
-        }
+        for (const item of items) {
+            const product = await prisma.product.findUnique({
+                where: { id: item.productId },
+            })
 
-        // Parsear repuestos asociados si los tiene guardados en JSON
-        let initialSpares: { name: string; defaultLifespanDays?: number; lifespanDays?: number; spareProductId?: string }[] = []
-        if (product.spareParts) {
-            try {
-                initialSpares = JSON.parse(product.spareParts)
-            } catch (err) {
-                console.error("Error parseando repuestos del producto:", err)
+            if (!product) continue
+
+            // Parsear repuestos asociados si los tiene guardados en JSON
+            let initialSpares: { name: string; defaultLifespanDays?: number; lifespanDays?: number; spareProductId?: string }[] = []
+            if (product.spareParts) {
+                try {
+                    initialSpares = JSON.parse(product.spareParts)
+                } catch (err) {
+                    console.error("Error parseando repuestos del producto:", err)
+                }
+            }
+
+            const quantity = Math.max(1, item.quantity || 1)
+
+            // Crear un registro Sale por cada unidad seleccionada
+            for (let i = 0; i < quantity; i++) {
+                const sale = await prisma.sale.create({
+                    data: {
+                        userId: user.id,
+                        productId: product.id,
+                        invoiceUrl,
+                        trackedSpareParts: {
+                            create: initialSpares.map((spare) => ({
+                                name: spare.name,
+                                lifespanDays: spare.lifespanDays || spare.defaultLifespanDays || 180,
+                                spareProductId: spare.spareProductId || null,
+                            })),
+                        },
+                    },
+                    include: {
+                        user: true,
+                        product: true,
+                        trackedSpareParts: true,
+                    },
+                })
+
+                createdSales.push(sale)
             }
         }
 
-        // 4. Crear la venta e inicializar los repuestos a monitorear
-        const sale = await prisma.sale.create({
-            data: {
-                userId: user.id,
-                productId: product.id,
-                invoiceUrl,
-                trackedSpareParts: {
-                    create: initialSpares.map((spare) => ({
-                        name: spare.name,
-                        lifespanDays: spare.lifespanDays || spare.defaultLifespanDays || 180,
-                        spareProductId: spare.spareProductId || null,
-                    })),
-                },
-            },
-            include: {
-                user: true,
-                product: true,
-                trackedSpareParts: true,
-            },
-        })
-
         return NextResponse.json(
             {
-                message: "Venta registrada con éxito",
-                sale,
+                message: "Venta(s) registrada(s) con éxito",
+                sales: createdSales,
                 isNewUser,
                 generatedCredentials,
             },

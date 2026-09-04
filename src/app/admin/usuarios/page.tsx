@@ -26,6 +26,9 @@ export default function AdminUsuariosPage() {
     const [users, setUsers] = useState<User[]>([])
     const [loading, setLoading] = useState(true)
 
+    // Estado para Búsqueda por Nombre / Usuario / Email
+    const [searchQuery, setSearchQuery] = useState("")
+
     const [selectedIds, setSelectedIds] = useState<string[]>([])
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [selectedUser, setSelectedUser] = useState<User | null>(null)
@@ -80,7 +83,7 @@ export default function AdminUsuariosPage() {
         }
     }
 
-    // Lógica de ordenamiento
+    // Lógica de ordenamiento y filtrado por búsqueda
     const handleSort = (field: SortField) => {
         if (sortField === field) {
             setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"))
@@ -90,36 +93,51 @@ export default function AdminUsuariosPage() {
         }
     }
 
-    const sortedUsers = useMemo(() => {
-        return [...users].sort((a, b) => {
-            let aVal = ""
-            let bVal = ""
+    const filteredAndSortedUsers = useMemo(() => {
+        return users
+            .filter((user) => {
+                const query = searchQuery.toLowerCase().trim()
+                if (!query) return true
 
-            if (sortField === "name") {
-                aVal = [a.firstName, a.lastName].filter(Boolean).join(" ") || `@${a.username}`
-                bVal = [b.firstName, b.lastName].filter(Boolean).join(" ") || `@${b.username}`
-            } else if (sortField === "email") {
-                aVal = a.email
-                bVal = b.email
-            } else if (sortField === "role") {
-                aVal = a.role
-                bVal = b.role
-            } else if (sortField === "createdAt") {
-                const dateA = new Date(a.createdAt).getTime()
-                const dateB = new Date(b.createdAt).getTime()
-                return sortDirection === "asc" ? dateA - dateB : dateB - dateA
-            }
+                const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").toLowerCase()
+                const username = user.username.toLowerCase()
+                const email = user.email.toLowerCase()
 
-            const comp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" })
-            return sortDirection === "asc" ? comp : -comp
-        })
-    }, [users, sortField, sortDirection])
+                return (
+                    fullName.includes(query) ||
+                    username.includes(query) ||
+                    email.includes(query)
+                )
+            })
+            .sort((a, b) => {
+                let aVal = ""
+                let bVal = ""
+
+                if (sortField === "name") {
+                    aVal = [a.firstName, a.lastName].filter(Boolean).join(" ") || `@${a.username}`
+                    bVal = [b.firstName, b.lastName].filter(Boolean).join(" ") || `@${b.username}`
+                } else if (sortField === "email") {
+                    aVal = a.email
+                    bVal = b.email
+                } else if (sortField === "role") {
+                    aVal = a.role
+                    bVal = b.role
+                } else if (sortField === "createdAt") {
+                    const dateA = new Date(a.createdAt).getTime()
+                    const dateB = new Date(b.createdAt).getTime()
+                    return sortDirection === "asc" ? dateA - dateB : dateB - dateA
+                }
+
+                const comp = aVal.localeCompare(bVal, undefined, { numeric: true, sensitivity: "base" })
+                return sortDirection === "asc" ? comp : -comp
+            })
+    }, [users, searchQuery, sortField, sortDirection])
 
     const handleSelectAll = () => {
-        if (selectedIds.length === users.length) {
+        if (selectedIds.length === filteredAndSortedUsers.length) {
             setSelectedIds([])
         } else {
-            setSelectedIds(users.map((u) => u.id))
+            setSelectedIds(filteredAndSortedUsers.map((u) => u.id))
         }
     }
 
@@ -307,6 +325,25 @@ export default function AdminUsuariosPage() {
                     )}
                 </div>
 
+                {/* BARRA DE BÚSQUEDA */}
+                <div className="mb-6 relative">
+                    <input
+                        type="text"
+                        placeholder="Buscar por nombre, usuario o email..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="w-full bg-zinc-900/60 border border-zinc-800 text-zinc-100 text-xs rounded-xl pl-10 pr-10 py-3 focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 transition-colors placeholder:text-zinc-600"
+                    />
+                    {searchQuery && (
+                        <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-xs text-zinc-500 hover:text-zinc-300 font-bold"
+                        >
+                            ✕
+                        </button>
+                    )}
+                </div>
+
                 {/* TABLA ESTILO DARK GLASSMORPHISM */}
                 <div className="border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-900/50 backdrop-blur-md shadow-2xl">
                     <table className="w-full text-left border-collapse">
@@ -316,7 +353,7 @@ export default function AdminUsuariosPage() {
                                     <input
                                         type="checkbox"
                                         className="rounded border-zinc-700 bg-zinc-800 text-lime-400 focus:ring-lime-400/50 cursor-pointer w-4 h-4 accent-lime-400"
-                                        checked={users.length > 0 && selectedIds.length === users.length}
+                                        checked={filteredAndSortedUsers.length > 0 && selectedIds.length === filteredAndSortedUsers.length}
                                         onChange={handleSelectAll}
                                     />
                                 </th>
@@ -336,14 +373,14 @@ export default function AdminUsuariosPage() {
                                         </div>
                                     </td>
                                 </tr>
-                            ) : sortedUsers.length === 0 ? (
+                            ) : filteredAndSortedUsers.length === 0 ? (
                                 <tr>
                                     <td colSpan={5} className="p-12 text-center text-zinc-500 text-xs font-medium">
-                                        No hay usuarios registrados en PHIIT.
+                                        {searchQuery ? `No se encontraron usuarios para "${searchQuery}"` : "No hay usuarios registrados en PHIIT."}
                                     </td>
                                 </tr>
                             ) : (
-                                sortedUsers.map((user) => {
+                                filteredAndSortedUsers.map((user) => {
                                     const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ")
                                     const displayName = fullName || `@${user.username}`
                                     const isSelected = selectedIds.includes(user.id)

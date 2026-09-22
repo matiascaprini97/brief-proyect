@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
     // Esto le grita a Turbopack que exponga la URL globalmente
     DATABASE_URL: process.env.DATABASE_URL,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "*.public.blob.vercel-storage.com",
+      },
+    ],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: "10mb", // 👈 Aumentamos el límite para imágenes y archivos

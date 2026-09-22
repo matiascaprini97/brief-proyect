@@ -60,7 +60,8 @@ export async function GET() {
             warrantyDays: sale.product.warrantyDays,
             photos: sale.product.photos,
             trackedSpareParts: sale.trackedSpareParts,
-            invoiceUrl: sale.invoiceUrl ?? null, // 🟢 MAPEADO DE LA FACTURA DESDE SALE
+            invoiceUrl: sale.invoiceUrl ?? null,
+            warrantyUrl: sale.warrantyUrl ?? sale.product.warrantyUrl ?? null, // 🟢 MAPEADO DE LA GARANTÍA
         }));
 
         return NextResponse.json(formattedProducts);

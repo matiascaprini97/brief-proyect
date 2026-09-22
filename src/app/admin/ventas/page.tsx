@@ -34,12 +34,13 @@ interface Sale {
     product: Product
     trackedSpareParts: TrackedSparePart[]
     invoiceUrl?: string
+    warrantyUrl?: string
 }
 
 interface SelectedItem {
     productId: string
     quantity: number
-    searchQuery?: string // Añadido para el filtro individual por fila
+    searchQuery?: string
 }
 
 // Estructura agrupada para renderizar 1 tarjeta por transacción
@@ -48,6 +49,7 @@ interface GroupedSale {
     createdAt: string
     user: User
     invoiceUrl?: string
+    warrantyUrl?: string
     sales: Sale[]
     totalItems: number
     productSummary: { name: string; count: number }[]
@@ -76,6 +78,7 @@ export default function AdminVentasPage() {
     ])
 
     const [invoiceFile, setInvoiceFile] = useState<File | null>(null)
+    const [warrantyFile, setWarrantyFile] = useState<File | null>(null)
     const [createdCredentials, setCreatedCredentials] = useState<{
         username: string
         password: string
@@ -162,12 +165,14 @@ export default function AdminVentasPage() {
             formData.append("lastName", lastName)
             formData.append("phoneNumber", phoneNumber)
 
-            // Mapeamos para solo enviar productId y quantity a la API
             const itemsToSubmit = selectedItems.map(({ productId, quantity }) => ({ productId, quantity }))
             formData.append("items", JSON.stringify(itemsToSubmit))
 
             if (invoiceFile) {
                 formData.append("invoice", invoiceFile)
+            }
+            if (warrantyFile) {
+                formData.append("warranty", warrantyFile)
             }
 
             const res = await fetch("/api/sales", {
@@ -238,6 +243,7 @@ export default function AdminVentasPage() {
         setPhoneNumber("")
         setSelectedItems([{ productId: "", quantity: 1, searchQuery: "" }])
         setInvoiceFile(null)
+        setWarrantyFile(null)
         setCreatedCredentials(null)
     }
 
@@ -259,10 +265,10 @@ export default function AdminVentasPage() {
         const groupsMap = new Map<string, GroupedSale>()
 
         sales.forEach((sale) => {
-            // Clave única basada en Usuario + Factura o Timestamp aproximado (mismo minuto)
             const dateMinutes = new Date(sale.createdAt).toISOString().slice(0, 16)
-            const key = sale.invoiceUrl
-                ? `${sale.user?.id}-${sale.invoiceUrl}`
+            const docKey = sale.invoiceUrl || sale.warrantyUrl || ""
+            const key = docKey
+                ? `${sale.user?.id}-${docKey}`
                 : `${sale.user?.id}-${dateMinutes}`
 
             if (!groupsMap.has(key)) {
@@ -271,6 +277,7 @@ export default function AdminVentasPage() {
                     createdAt: sale.createdAt,
                     user: sale.user,
                     invoiceUrl: sale.invoiceUrl,
+                    warrantyUrl: sale.warrantyUrl,
                     sales: [],
                     totalItems: 0,
                     productSummary: [],
@@ -278,10 +285,12 @@ export default function AdminVentasPage() {
             }
 
             const group = groupsMap.get(key)!
+            if (sale.invoiceUrl && !group.invoiceUrl) group.invoiceUrl = sale.invoiceUrl
+            if (sale.warrantyUrl && !group.warrantyUrl) group.warrantyUrl = sale.warrantyUrl
+
             group.sales.push(sale)
             group.totalItems += 1
 
-            // Conteo resumido de tipos de equipos en la compra
             const prodName = sale.product?.name || "Equipo"
             const existingSummary = group.productSummary.find((p) => p.name === prodName)
             if (existingSummary) {
@@ -298,14 +307,12 @@ export default function AdminVentasPage() {
     const filteredAndSortedGroups = useMemo(() => {
         return groupedSales
             .filter((group) => {
-                // Filtro por búsqueda de texto
                 const query = searchTerm.toLowerCase()
                 const clientName = `${group.user?.firstName || ""} ${group.user?.lastName || ""}`.toLowerCase()
                 const clientEmail = (group.user?.email || "").toLowerCase()
                 const productsText = group.productSummary.map((p) => p.name).join(" ").toLowerCase()
                 const matchesSearch = clientName.includes(query) || clientEmail.includes(query) || productsText.includes(query)
 
-                // Filtro por Fecha
                 const saleDate = new Date(group.createdAt).getTime()
                 const now = Date.now()
                 const daysDiff = (now - saleDate) / (1000 * 60 * 60 * 24)
@@ -318,7 +325,6 @@ export default function AdminVentasPage() {
                 return matchesSearch && matchesDate
             })
             .sort((a, b) => {
-                // Ordenamiento
                 if (sortBy === "newest") {
                     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
                 }
@@ -339,7 +345,7 @@ export default function AdminVentasPage() {
             <Navbar isAdmin={true} profilePicture={profilePicture} />
 
             <main className="flex-1 mx-auto w-full max-w-7xl px-6 py-10">
-                {/* Header & Volver */}
+                {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
                     <div>
                         <Link
@@ -352,7 +358,7 @@ export default function AdminVentasPage() {
                             Consola de Gestión de Ventas
                         </h1>
                         <p className="text-xs text-zinc-400 mt-1 max-w-xl">
-                            Administrá transacciones registradas, asigná clientes, adjuntá facturas y monitoreá en tiempo real el ciclo de vida de los componentes.
+                            Administrá transacciones registradas, asigná clientes, adjuntá facturas y contratos de garantía, y monitoreá en tiempo real los componentes.
                         </p>
                     </div>
 
@@ -367,9 +373,8 @@ export default function AdminVentasPage() {
                     </button>
                 </div>
 
-                {/* BARRA DE BÚSQUEDA Y FILTROS */}
+                {/* BÚSQUEDA Y FILTROS */}
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 mb-6">
-                    {/* Búsqueda */}
                     <div className="sm:col-span-6 relative">
                         <input
                             type="text"
@@ -380,7 +385,6 @@ export default function AdminVentasPage() {
                         />
                     </div>
 
-                    {/* Filtro por Rango de Fecha */}
                     <div className="sm:col-span-3">
                         <select
                             value={dateRange}
@@ -394,7 +398,6 @@ export default function AdminVentasPage() {
                         </select>
                     </div>
 
-                    {/* Ordenamiento */}
                     <div className="sm:col-span-3">
                         <select
                             value={sortBy}
@@ -440,7 +443,7 @@ export default function AdminVentasPage() {
                                                 </div>
                                             </div>
 
-                                            {/* Resumen de Compra (Productos y Cantidad) */}
+                                            {/* Resumen de Compra */}
                                             <div className="md:col-span-4 space-y-0.5 min-w-0">
                                                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 block">
                                                     Resumen de Orden ({group.totalItems} {group.totalItems === 1 ? "unidad" : "unidades"})
@@ -475,6 +478,21 @@ export default function AdminVentasPage() {
                                                     </a>
                                                 )}
 
+                                                {group.warrantyUrl && (
+                                                    <a
+                                                        href={group.warrantyUrl}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider bg-white/5 border border-white/10 hover:border-lime-400/50 hover:text-lime-400 text-zinc-200 transition-all inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+                                                        title="Ver / Descargar Contrato de Garantía PDF"
+                                                    >
+                                                        <svg className="w-3.5 h-3.5 text-lime-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                                        </svg>
+                                                        <span>Garantía PDF</span>
+                                                    </a>
+                                                )}
+
                                                 <button
                                                     onClick={() => setExpandedGroupId(isExpanded ? null : group.groupId)}
                                                     className={`h-9 px-3.5 rounded-xl text-xs font-extrabold uppercase tracking-wider transition-all border inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap ${isExpanded
@@ -491,7 +509,7 @@ export default function AdminVentasPage() {
 
                                         </div>
 
-                                        {/* DESGLOSE INDIVIDUAL DE UNIDADES Y SUS REPUESTOS */}
+                                        {/* DESGLOSE INDIVIDUAL */}
                                         {isExpanded && (
                                             <div className="bg-black/80 border-t border-white/10 p-6 md:p-8 backdrop-blur-2xl space-y-6 animate-in fade-in duration-200">
                                                 <div className="flex items-center justify-between border-b border-white/10 pb-4">
@@ -519,7 +537,7 @@ export default function AdminVentasPage() {
                                                                 </button>
                                                             </div>
 
-                                                            {/* Repuestos de la unidad */}
+                                                            {/* Repuestos */}
                                                             {saleItem.trackedSpareParts?.length === 0 ? (
                                                                 <p className="text-xs text-zinc-500 italic">Sin repuestos en seguimiento.</p>
                                                             ) : (
@@ -566,7 +584,7 @@ export default function AdminVentasPage() {
                 </div>
             </main>
 
-            {/* MODAL MANTENIDO INTACTO */}
+            {/* MODAL NUEVA VENTA */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
                     <div className="bg-zinc-950/90 border border-white/15 rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-[0_0_60px_rgba(163,230,53,0.12)] backdrop-blur-2xl space-y-6 max-h-[90vh] overflow-y-auto">
@@ -672,7 +690,7 @@ export default function AdminVentasPage() {
                                     />
                                 </div>
 
-                                {/* SECCIÓN DE PRODUCTOS DINÁMICOS CON BÚSQUEDA INTEGRADAS */}
+                                {/* ARTÍCULOS */}
                                 <div className="space-y-3 pt-2">
                                     <div className="flex items-center justify-between">
                                         <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
@@ -746,16 +764,31 @@ export default function AdminVentasPage() {
                                     })}
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
-                                        Factura PDF (Opcional)
-                                    </label>
-                                    <input
-                                        type="file"
-                                        accept="application/pdf"
-                                        onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
-                                        className="w-full text-xs text-zinc-400 border border-white/10 bg-white/5 rounded-xl p-3 file:mr-4 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-lime-400 file:text-black hover:file:bg-lime-300 cursor-pointer font-medium transition-all"
-                                    />
+                                {/* ARCHIVOS ADJUNTOS (FACTURA Y GARANTÍA) */}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                                            Factura PDF (Opcional)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept="application/pdf"
+                                            onChange={(e) => setInvoiceFile(e.target.files?.[0] || null)}
+                                            className="w-full text-xs text-zinc-400 border border-white/10 bg-white/5 rounded-xl p-2.5 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-lime-400 file:text-black hover:file:bg-lime-300 cursor-pointer font-medium transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                                            Garantía PDF (Opcional)
+                                        </label>
+                                        <input
+                                            type="file"
+                                            accept="application/pdf"
+                                            onChange={(e) => setWarrantyFile(e.target.files?.[0] || null)}
+                                            className="w-full text-xs text-zinc-400 border border-white/10 bg-white/5 rounded-xl p-2.5 file:mr-2 file:py-1 file:px-2.5 file:rounded-lg file:border-0 file:text-[11px] file:font-bold file:bg-lime-400 file:text-black hover:file:bg-lime-300 cursor-pointer font-medium transition-all"
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="pt-4 flex gap-3">

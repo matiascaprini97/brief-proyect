@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { writeFile, mkdir } from "fs/promises"
 import path from "path"
+import { sendWelcomeEmail, sendPurchaseConfirmationEmail } from "@/lib/mail"
 
 // GET: Obtener todas las ventas con sus relaciones
 export async function GET() {
@@ -28,6 +29,7 @@ export async function GET() {
 }
 
 // POST: Registrar nueva(s) venta(s) con múltiples artículos y PDF de factura opcional
+// POST: Registrar nueva(s) venta(s)
 export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData()
@@ -36,10 +38,12 @@ export async function POST(req: NextRequest) {
         const firstName = (formData.get("firstName") as string) || ""
         const lastName = (formData.get("lastName") as string) || ""
         const phoneNumber = (formData.get("phoneNumber") as string) || ""
-        const itemsRaw = formData.get("items") as string // Recibe JSON de productos: [{ productId, quantity }]
-        const invoiceFile = formData.get("invoice") as File | null
+        const itemsRaw = formData.get("items") as string
 
-        // Validación básica
+        // Archivos recibidos desde el formulario
+        const invoiceFile = formData.get("invoice") as File | null
+        const warrantyFile = formData.get("warranty") as File | null // 👈 Nuevo campo
+
         if (!email || !itemsRaw) {
             return NextResponse.json(
                 { error: "El email del cliente y los artículos son requeridos" },
@@ -64,40 +68,43 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        // 1. Guardar la factura PDF en el sistema de archivos si se proporcionó
+        // 1. Guardar la factura PDF si existe
         let invoiceUrl: string | null = null
-
         if (invoiceFile && invoiceFile.size > 0) {
             const bytes = await invoiceFile.arrayBuffer()
             const buffer = Buffer.from(bytes)
-
-            // Generar nombre de archivo único
             const timestamp = Date.now()
             const cleanFileName = invoiceFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")
             const fileName = `${timestamp}-${cleanFileName}`
-
-            // Definir directorio de subida en /public
             const uploadDir = path.join(process.cwd(), "public", "uploads", "invoices")
 
-            // Crear carpeta si no existe y escribir archivo
             await mkdir(uploadDir, { recursive: true })
             await writeFile(path.join(uploadDir, fileName), buffer)
-
-            // Ruta pública accesible vía web
             invoiceUrl = `/uploads/invoices/${fileName}`
         }
 
-        // 2. Buscar si el usuario ya existe o crearlo si es nuevo
-        let user = await prisma.user.findUnique({
-            where: { email },
-        })
+        // 2. Guardar el contrato de garantía PDF si existe (👈 Nuevo bloque)
+        let warrantyUrl: string | null = null
+        if (warrantyFile && warrantyFile.size > 0) {
+            const bytes = await warrantyFile.arrayBuffer()
+            const buffer = Buffer.from(bytes)
+            const timestamp = Date.now()
+            const cleanFileName = warrantyFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+            const fileName = `${timestamp}-${cleanFileName}`
+            const uploadDir = path.join(process.cwd(), "public", "uploads", "warranties")
 
+            await mkdir(uploadDir, { recursive: true })
+            await writeFile(path.join(uploadDir, fileName), buffer)
+            warrantyUrl = `/uploads/warranties/${fileName}`
+        }
+
+        // 3. Buscar o crear usuario
+        let user = await prisma.user.findUnique({ where: { email } })
         let generatedCredentials = null
         let isNewUser = false
 
         if (!user) {
             isNewUser = true
-            // Generar contraseña temporal de 8 caracteres
             const generatedPassword = Math.random().toString(36).slice(-8)
             const username = email.split("@")[0] + Math.floor(1000 + Math.random() * 9000)
 
@@ -119,7 +126,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 3. Recorrer los artículos y crear las ventas con sus respectivos repuestos
+        // 4. Crear los registros de ventas
         const createdSales = []
 
         for (const item of items) {
@@ -129,25 +136,24 @@ export async function POST(req: NextRequest) {
 
             if (!product) continue
 
-            // Parsear repuestos asociados si los tiene guardados en JSON
-            let initialSpares: { name: string; defaultLifespanDays?: number; lifespanDays?: number; spareProductId?: string }[] = []
+            let initialSpares: any[] = []
             if (product.spareParts) {
                 try {
                     initialSpares = JSON.parse(product.spareParts)
                 } catch (err) {
-                    console.error("Error parseando repuestos del producto:", err)
+                    console.error("Error parseando repuestos:", err)
                 }
             }
 
             const quantity = Math.max(1, item.quantity || 1)
 
-            // Crear un registro Sale por cada unidad seleccionada
             for (let i = 0; i < quantity; i++) {
                 const sale = await prisma.sale.create({
                     data: {
                         userId: user.id,
                         productId: product.id,
                         invoiceUrl,
+                        warrantyUrl, // 👈 Guardamos la garantía en la venta
                         trackedSpareParts: {
                             create: initialSpares.map((spare) => ({
                                 name: spare.name,
@@ -167,6 +173,22 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        // 5. Mails
+        if (user.email) {
+            if (isNewUser && generatedCredentials) {
+                await sendWelcomeEmail(user.email, generatedCredentials.username, generatedCredentials.password)
+            }
+
+            if (createdSales.length > 0) {
+                const mainProduct = createdSales[0].product.name || "Equipo PHiiT"
+                const productSummary = createdSales.length > 1
+                    ? `${mainProduct} y otros ${createdSales.length - 1} artículo(s)`
+                    : mainProduct
+
+                await sendPurchaseConfirmationEmail(user.email, productSummary)
+            }
+        }
+
         return NextResponse.json(
             {
                 message: "Venta(s) registrada(s) con éxito",
@@ -179,7 +201,7 @@ export async function POST(req: NextRequest) {
     } catch (error: any) {
         console.error("Error al registrar la venta:", error)
         return NextResponse.json(
-            { error: error.message || "Ocurrió un error interno al procesar la venta" },
+            { error: error.message || "Error interno al procesar la venta" },
             { status: 500 }
         )
     }

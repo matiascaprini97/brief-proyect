@@ -61,6 +61,7 @@ model Sale {
   userId     String
   productId  String
   invoiceUrl String?
+  warrantyUrl String?
   createdAt  DateTime @default(now())
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)

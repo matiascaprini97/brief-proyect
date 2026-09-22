@@ -61,7 +61,7 @@ export async function GET() {
             photos: sale.product.photos,
             trackedSpareParts: sale.trackedSpareParts,
             invoiceUrl: sale.invoiceUrl ?? null,
-            warrantyUrl: sale.warrantyUrl ?? sale.product.warrantyUrl ?? null, // 🟢 MAPEADO DE LA GARANTÍA
+            warrantyUrl: sale.warrantyUrl ?? null, // 🟢 MAPEADO DE LA GARANTÍA
         }));
 
         return NextResponse.json(formattedProducts);

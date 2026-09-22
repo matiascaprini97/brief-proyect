@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { saveUploadedFile } from "@/lib/upload"
 import { sendWelcomeEmail, sendPurchaseConfirmationEmail } from "@/lib/mail"
 
 // GET: Obtener todas las ventas con sus relaciones
@@ -28,8 +27,7 @@ export async function GET() {
     }
 }
 
-// POST: Registrar nueva(s) venta(s) con múltiples artículos y PDF de factura opcional
-// POST: Registrar nueva(s) venta(s)
+// POST: Registrar nueva(s) venta(s) con múltiples artículos y PDF de factura / garantía
 export async function POST(req: NextRequest) {
     try {
         const formData = await req.formData()
@@ -42,7 +40,7 @@ export async function POST(req: NextRequest) {
 
         // Archivos recibidos desde el formulario
         const invoiceFile = formData.get("invoice") as File | null
-        const warrantyFile = formData.get("warranty") as File | null // 👈 Nuevo campo
+        const warrantyFile = formData.get("warranty") as File | null
 
         if (!email || !itemsRaw) {
             return NextResponse.json(
@@ -68,34 +66,16 @@ export async function POST(req: NextRequest) {
             )
         }
 
-        // 1. Guardar la factura PDF si existe
+        // 1. Guardar la factura PDF si existe en Vercel Blob
         let invoiceUrl: string | null = null
         if (invoiceFile && invoiceFile.size > 0) {
-            const bytes = await invoiceFile.arrayBuffer()
-            const buffer = Buffer.from(bytes)
-            const timestamp = Date.now()
-            const cleanFileName = invoiceFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-            const fileName = `${timestamp}-${cleanFileName}`
-            const uploadDir = path.join(process.cwd(), "public", "uploads", "invoices")
-
-            await mkdir(uploadDir, { recursive: true })
-            await writeFile(path.join(uploadDir, fileName), buffer)
-            invoiceUrl = `/uploads/invoices/${fileName}`
+            invoiceUrl = await saveUploadedFile(invoiceFile, "uploads/invoices")
         }
 
-        // 2. Guardar el contrato de garantía PDF si existe (👈 Nuevo bloque)
+        // 2. Guardar el contrato de garantía PDF si existe en Vercel Blob
         let warrantyUrl: string | null = null
         if (warrantyFile && warrantyFile.size > 0) {
-            const bytes = await warrantyFile.arrayBuffer()
-            const buffer = Buffer.from(bytes)
-            const timestamp = Date.now()
-            const cleanFileName = warrantyFile.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-            const fileName = `${timestamp}-${cleanFileName}`
-            const uploadDir = path.join(process.cwd(), "public", "uploads", "warranties")
-
-            await mkdir(uploadDir, { recursive: true })
-            await writeFile(path.join(uploadDir, fileName), buffer)
-            warrantyUrl = `/uploads/warranties/${fileName}`
+            warrantyUrl = await saveUploadedFile(warrantyFile, "uploads/warranties")
         }
 
         // 3. Buscar o crear usuario
@@ -153,7 +133,7 @@ export async function POST(req: NextRequest) {
                         userId: user.id,
                         productId: product.id,
                         invoiceUrl,
-                        warrantyUrl, // 👈 Guardamos la garantía en la venta
+                        warrantyUrl,
                         trackedSpareParts: {
                             create: initialSpares.map((spare) => ({
                                 name: spare.name,

@@ -1,27 +1,19 @@
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { put } from "@vercel/blob";
 
 /**
- * Recibe un objeto File de FormData, lo guarda en public/uploads y retorna la URL relativa.
+ * Recibe un objeto File de FormData, lo guarda en Vercel Blob y retorna la URL pública.
  */
 export async function saveUploadedFile(file: File, folder = "uploads"): Promise<string> {
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    // Sanitizamos el nombre del archivo igual que antes
+    const sanitizeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_");
+    const pathname = `${folder}/${Date.now()}-${sanitizeFilename}`;
 
-    // Definimos la ruta destino en public/
-    const uploadDir = path.join(process.cwd(), "public", folder)
+    // Subimos directamente a Vercel Blob
+    const blob = await put(pathname, file, {
+        access: "public",
+    });
 
-    // Aseguramos que la carpeta exista (si no existe, la crea)
-    await mkdir(uploadDir, { recursive: true })
-
-    // Generamos un nombre único para evitar colisiones de archivos
-    const sanitizeFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
-    const uniqueName = `${Date.now()}-${sanitizeFilename}`
-    const filePath = path.join(uploadDir, uniqueName)
-
-    // Escribimos el archivo en disco
-    await writeFile(filePath, buffer)
-
-    // Retornamos el path que guardaremos en la base de datos (sirve directo en la etiqueta <img src="..." />)
-    return `/${folder}/${uniqueName}`
+    // Retorna la URL pública (ej: https://...public.blob.vercel-storage.com/uploads/123-foto.jpg)
+    // Las etiquetas <img src="..." /> y <a href="..."> la leen perfectamente sin cambiar nada.
+    return blob.url;
 }

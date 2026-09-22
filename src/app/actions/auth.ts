@@ -6,8 +6,7 @@ import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import crypto from "crypto"
 import { sendResetPasswordEmail } from "@/lib/mail"
-import { writeFile, mkdir } from "fs/promises"
-import path from "path"
+import { saveUploadedFile } from "@/lib/upload"
 
 export interface LoginResult {
     success: boolean
@@ -122,23 +121,8 @@ export async function updateProfileAction(formData: FormData): Promise<ProfileRe
                 return { success: false, error: "El archivo seleccionado debe ser una imagen." }
             }
 
-            const bytes = await imageFile.arrayBuffer()
-            const buffer = Buffer.from(bytes)
-
-            // Creamos la carpeta public/uploads si aún no existe
-            const uploadDir = path.join(process.cwd(), "public", "uploads")
-            await mkdir(uploadDir, { recursive: true })
-
-            // Generamos un nombre único para evitar colisiones
-            const fileExtension = imageFile.name.split(".").pop() || "png"
-            const fileName = `avatar-${userId}-${Date.now()}.${fileExtension}`
-            const filePath = path.join(uploadDir, fileName)
-
-            // Guardamos el archivo en el sistema de archivos local
-            await writeFile(filePath, buffer)
-
-            // Ruta pública que guardaremos en la base de datos
-            uploadedImagePath = `/uploads/${fileName}`
+            // Subida a Vercel Blob mediante saveUploadedFile
+            uploadedImagePath = await saveUploadedFile(imageFile, "uploads/avatars")
         }
 
         // 2. ARMADO DEL OBJETO DE ACTUALIZACIÓN

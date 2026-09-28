@@ -180,23 +180,23 @@ export default function ClientPage() {
             className="relative flex min-h-screen flex-col text-white antialiased font-sans select-none"
             style={{ scrollbarGutter: "stable" }}
         >
-            {/* FONDO CON MENOS DIFUMINADO (blur-sm) */}
+            {/* FONDO MENOS DIFUMINADO (blur-[1px] Y MAYOR CLARIDAD) */}
             <div
-                className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat filter blur-sm scale-105 opacity-75 pointer-events-none"
+                className="fixed inset-0 -z-20 bg-cover bg-center bg-no-repeat filter blur-[1px] scale-105 opacity-80 pointer-events-none"
                 style={{ backgroundImage: "url('/uploads/Wallpaper.jpeg')" }}
             />
-            {/* Capa de contraste semi-transparente */}
-            <div className="fixed inset-0 -z-10 bg-gradient-to-b from-black/50 via-black/35 to-black/60 pointer-events-none" />
+            {/* Capa de contraste semi-transparente ajustada para legibilidad */}
+            <div className="fixed inset-0 -z-10 bg-gradient-to-b from-black/70 via-black/50 to-black/80 pointer-events-none" />
 
             <Navbar profilePicture={profilePicture} />
 
             {/* CONTENEDOR CENTRADO Y COMPACTO */}
             <main className="flex-1 mx-auto w-full max-w-4xl px-4 sm:px-6 py-10 relative z-10">
 
-                {/* Encabezado Centrado */}
+                {/* Encabezado Centrado en Blanco y Negro */}
                 <div className="mb-8 space-y-2 text-center max-w-xl mx-auto">
                     <h1 className="text-3xl sm:text-4xl font-black tracking-tight uppercase leading-none text-white">
-                        MIS <span className="text-fuchsia-500 italic">ARTÍCULOS</span>
+                        MIS <span className="text-zinc-400 italic">ARTÍCULOS</span>
                     </h1>
                     <p className="text-xs sm:text-sm font-medium text-zinc-300">
                         Historial de equipamiento técnico y estado de componentes en PHIIT Equipments.
@@ -211,7 +211,7 @@ export default function ClientPage() {
                             placeholder="Buscar por equipo, marca o modelo..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full text-xs border border-white/20 bg-black/40 backdrop-blur-xl text-white px-4 py-3 rounded-2xl focus:outline-none focus:border-fuchsia-500 font-medium transition-all placeholder:text-zinc-400 shadow-xl text-center sm:text-left"
+                            className="w-full text-xs border border-white/20 bg-black/50 backdrop-blur-xl text-white px-4 py-3 rounded-2xl focus:outline-none focus:border-white font-medium transition-all placeholder:text-zinc-400 shadow-xl text-center sm:text-left"
                         />
                     </div>
 
@@ -219,7 +219,7 @@ export default function ClientPage() {
                         <select
                             value={dateRange}
                             onChange={(e) => setDateRange(e.target.value as any)}
-                            className="w-full text-xs border border-white/20 bg-zinc-950/80 backdrop-blur-xl text-white px-3 py-3 rounded-2xl focus:outline-none focus:border-fuchsia-500 font-medium shadow-xl text-center"
+                            className="w-full text-xs border border-white/20 bg-zinc-950/90 backdrop-blur-xl text-white px-3 py-3 rounded-2xl focus:outline-none focus:border-white font-medium shadow-xl text-center"
                         >
                             <option value="all">Todas las compras</option>
                             <option value="30days">Últimos 30 días</option>
@@ -232,7 +232,7 @@ export default function ClientPage() {
                         <select
                             value={sortBy}
                             onChange={(e) => setSortBy(e.target.value as any)}
-                            className="w-full text-xs border border-white/20 bg-zinc-950/80 backdrop-blur-xl text-white px-3 py-3 rounded-2xl focus:outline-none focus:border-fuchsia-500 font-medium shadow-xl text-center"
+                            className="w-full text-xs border border-white/20 bg-zinc-950/90 backdrop-blur-xl text-white px-3 py-3 rounded-2xl focus:outline-none focus:border-white font-medium shadow-xl text-center"
                         >
                             <option value="newest">Más recientes primero</option>
                             <option value="oldest">Más antiguas primero</option>
@@ -242,12 +242,12 @@ export default function ClientPage() {
 
                 {/* MANEJO DE ESTADOS DE CARGA Y LISTA */}
                 {loading ? (
-                    <div className="flex flex-col items-center justify-center py-20 space-y-3 rounded-3xl border border-white/20 bg-black/30 backdrop-blur-xl">
-                        <div className="h-8 w-8 animate-spin rounded-full border-3 border-fuchsia-500/30 border-t-fuchsia-500" />
+                    <div className="flex flex-col items-center justify-center py-20 space-y-3 rounded-3xl border border-white/20 bg-black/40 backdrop-blur-xl">
+                        <div className="h-8 w-8 animate-spin rounded-full border-3 border-white/20 border-t-white" />
                         <p className="text-xs font-bold text-zinc-200 uppercase tracking-widest">Cargando tus equipos...</p>
                     </div>
                 ) : filteredAndSortedGroups.length === 0 ? (
-                    <div className="rounded-3xl border border-white/20 bg-black/40 backdrop-blur-2xl p-10 text-center text-sm text-zinc-300 shadow-2xl">
+                    <div className="rounded-3xl border border-white/20 bg-black/50 backdrop-blur-2xl p-10 text-center text-sm text-zinc-300 shadow-2xl">
                         No se encontraron artículos técnicos asociados a tu búsqueda.
                     </div>
                 ) : (
@@ -264,16 +264,16 @@ export default function ClientPage() {
                             return (
                                 <div
                                     key={group.groupId}
-                                    className="border border-white/20 bg-black/40 backdrop-blur-xl rounded-3xl transition-all duration-300 shadow-2xl overflow-hidden hover:border-fuchsia-500/50 hover:bg-black/50"
+                                    className="border border-white/20 bg-black/50 backdrop-blur-xl rounded-3xl transition-all duration-300 shadow-2xl overflow-hidden hover:border-white/40 hover:bg-black/60"
                                 >
                                     {/* Cabecera de la Orden/Compra */}
                                     <div className="p-5 sm:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5">
                                         <div className="space-y-1.5 text-center md:text-left">
                                             <div className="flex items-center justify-center md:justify-start gap-2 flex-wrap">
-                                                <span className="text-[11px] font-black uppercase tracking-widest text-fuchsia-400 bg-fuchsia-500/10 border border-fuchsia-500/30 px-2.5 py-0.5 rounded-full">
+                                                <span className="text-[11px] font-black uppercase tracking-widest text-zinc-200 bg-white/10 border border-white/20 px-2.5 py-0.5 rounded-full">
                                                     Compra del {new Date(group.saleCreatedAt).toLocaleDateString()}
                                                 </span>
-                                                <span className="text-[11px] font-bold text-zinc-300 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15">
+                                                <span className="text-[11px] font-bold text-zinc-300 bg-zinc-800/80 px-2.5 py-0.5 rounded-full border border-zinc-700">
                                                     {totalUnits} {totalUnits === 1 ? "Unidad" : "Unidades"}
                                                 </span>
                                             </div>
@@ -281,22 +281,22 @@ export default function ClientPage() {
                                             <div className="space-y-0.5">
                                                 {group.summary.map((s, idx) => (
                                                     <h2 key={idx} className="text-xl font-black tracking-tight text-white uppercase">
-                                                        <span className="text-fuchsia-400 font-extrabold">{s.count}x</span> {s.brand} {s.name}
+                                                        <span className="text-zinc-400 font-extrabold">{s.count}x</span> {s.brand} {s.name}
                                                     </h2>
                                                 ))}
                                             </div>
                                         </div>
 
-                                        {/* ACCESO A FACTURA PDF EN LA CABECERA PRINCIPAL */}
+                                        {/* ACCESO A FACTURA PDF Y DETALLE */}
                                         <div className="flex flex-wrap items-center justify-center md:justify-end gap-2.5 shrink-0">
                                             {invoicePdf && (
                                                 <a
                                                     href={invoicePdf}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1.5 rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/15 px-3.5 py-2.5 text-[11px] font-bold text-fuchsia-300 uppercase tracking-wider hover:bg-fuchsia-500/30 hover:border-fuchsia-400 transition-all shadow-lg shrink-0 whitespace-nowrap"
+                                                    className="inline-flex items-center gap-1.5 rounded-xl border border-white/30 bg-white/10 px-3.5 py-2.5 text-[11px] font-bold text-white uppercase tracking-wider hover:bg-white/20 hover:border-white/60 transition-all shadow-lg shrink-0 whitespace-nowrap"
                                                 >
-                                                    <svg className="h-3.5 w-3.5 text-fuchsia-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                    <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                                         <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                                                     </svg>
                                                     Factura PDF
@@ -306,7 +306,7 @@ export default function ClientPage() {
                                             <button
                                                 onClick={() => setExpandedGroupId(isExpanded ? null : group.groupId)}
                                                 className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all border shrink-0 whitespace-nowrap ${isExpanded
-                                                    ? "bg-fuchsia-500 text-white border-fuchsia-400 shadow-[0_0_20px_rgba(217,70,239,0.3)]"
+                                                    ? "bg-white text-black border-white shadow-[0_0_15px_rgba(255,255,255,0.25)]"
                                                     : "bg-white/10 border-white/20 text-white hover:bg-white/20"
                                                     }`}
                                             >
@@ -327,13 +327,13 @@ export default function ClientPage() {
 
                                     {/* Cuerpo Desplegable */}
                                     {isExpanded && (
-                                        <div className="border-t border-white/15 bg-black/70 p-6 space-y-6 text-sm backdrop-blur-2xl animate-in fade-in duration-200">
+                                        <div className="border-t border-white/15 bg-black/80 p-6 space-y-6 text-sm backdrop-blur-2xl animate-in fade-in duration-200">
 
                                             {/* SELECTOR DE UNIDADES SI HAY MÁS DE 1 */}
                                             {totalUnits > 1 && (
                                                 <div className="space-y-2 bg-white/5 border border-white/10 p-3.5 rounded-2xl">
                                                     <div className="flex items-center justify-between">
-                                                        <h3 className="text-[11px] font-black uppercase tracking-widest text-fuchsia-400">
+                                                        <h3 className="text-[11px] font-black uppercase tracking-widest text-zinc-200">
                                                             Seleccionar Unidad ({activeUnitIdx + 1} de {totalUnits})
                                                         </h3>
                                                         <span className="text-[10px] text-zinc-400 font-medium">
@@ -342,15 +342,15 @@ export default function ClientPage() {
                                                     </div>
 
                                                     <div
-                                                        className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-2 [::-webkit-scrollbar]:w-1.5 [::-webkit-scrollbar-track]:bg-white/5 [::-webkit-scrollbar-track]:rounded-full [::-webkit-scrollbar-thumb]:bg-fuchsia-500 [::-webkit-scrollbar-thumb]:rounded-full hover:[::-webkit-scrollbar-thumb]:bg-fuchsia-400"
-                                                        style={{ scrollbarColor: "#d946ef rgba(255, 255, 255, 0.05)", scrollbarWidth: "thin" }}
+                                                        className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-2 [::-webkit-scrollbar]:w-1.5 [::-webkit-scrollbar-track]:bg-white/5 [::-webkit-scrollbar-track]:rounded-full [::-webkit-scrollbar-thumb]:bg-zinc-500 [::-webkit-scrollbar-thumb]:rounded-full hover:[::-webkit-scrollbar-thumb]:bg-zinc-400"
+                                                        style={{ scrollbarColor: "#71717a rgba(255, 255, 255, 0.05)", scrollbarWidth: "thin" }}
                                                     >
                                                         {group.items.map((unitItem, uIdx) => (
                                                             <button
                                                                 key={unitItem.id}
                                                                 onClick={() => handleSelectUnit(group.groupId, uIdx)}
                                                                 className={`px-3 py-1.5 rounded-lg text-[11px] font-bold uppercase transition-all border ${activeUnitIdx === uIdx
-                                                                    ? "bg-fuchsia-500/20 text-fuchsia-300 border-fuchsia-500 shadow-[0_0_12px_rgba(217,70,239,0.2)]"
+                                                                    ? "bg-white text-black font-extrabold border-white shadow-[0_0_12px_rgba(255,255,255,0.25)]"
                                                                     : "bg-black/40 text-zinc-300 border-white/10 hover:border-white/30"
                                                                     }`}
                                                             >
@@ -374,7 +374,7 @@ export default function ClientPage() {
                                                                 href={photoUrl}
                                                                 target="_blank"
                                                                 rel="noopener noreferrer"
-                                                                className="block overflow-hidden rounded-xl border border-white/20 bg-black/40 transition-all hover:scale-105 hover:border-fuchsia-500"
+                                                                className="block overflow-hidden rounded-xl border border-white/20 bg-black/40 transition-all hover:scale-105 hover:border-white"
                                                             >
                                                                 <img
                                                                     src={photoUrl}
@@ -405,9 +405,9 @@ export default function ClientPage() {
                                                             href={warrantyPdf}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center gap-2 rounded-xl border border-fuchsia-500/40 bg-fuchsia-500/15 px-4 py-2.5 text-xs font-bold text-fuchsia-300 uppercase tracking-wider hover:bg-fuchsia-500/30 hover:border-fuchsia-400 transition-all shadow-md shrink-0"
+                                                            className="inline-flex items-center gap-2 rounded-xl border border-white/30 bg-white/10 px-4 py-2.5 text-xs font-bold text-white uppercase tracking-wider hover:bg-white/20 hover:border-white/60 transition-all shadow-md shrink-0"
                                                         >
-                                                            <svg className="h-4 w-4 text-fuchsia-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                                            <svg className="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                                                             </svg>
                                                             Ver Contrato de Garantía PDF
@@ -427,7 +427,7 @@ export default function ClientPage() {
                                                 {(!currentUnit.trackedSpareParts || currentUnit.trackedSpareParts.length === 0) ? (
                                                     <p className="text-xs text-zinc-400 italic">Este artículo no requiere seguimiento individual de partes.</p>
                                                 ) : (
-                                                    <div className="space-y-4 bg-black/50 border border-white/15 rounded-2xl p-4 shadow-inner">
+                                                    <div className="space-y-4 bg-black/60 border border-white/15 rounded-2xl p-4 shadow-inner">
                                                         {currentUnit.trackedSpareParts.map((part) => {
                                                             const pct = calculateLifePercentage(part.installedAt, part.lifespanDays)
                                                             return (
@@ -438,7 +438,7 @@ export default function ClientPage() {
                                                                             {part.spareProductId && (
                                                                                 <a
                                                                                     href={`/store/products/${part.spareProductId}`}
-                                                                                    className="text-[11px] text-fuchsia-400 hover:text-fuchsia-300 underline underline-offset-4 transition-colors font-semibold"
+                                                                                    className="text-[11px] text-zinc-300 hover:text-white underline underline-offset-4 transition-colors font-semibold"
                                                                                 >
                                                                                     Comprar repuesto
                                                                                 </a>
@@ -449,10 +449,10 @@ export default function ClientPage() {
                                                                         </span>
                                                                     </div>
 
-                                                                    {/* Barra de progreso */}
+                                                                    {/* Barra de progreso Monocromática */}
                                                                     <div className="h-2 w-full bg-white/10 rounded-full overflow-hidden border border-white/10">
                                                                         <div
-                                                                            className={`h-full transition-all duration-500 ${pct < 20 ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "bg-fuchsia-500 shadow-[0_0_10px_rgba(217,70,239,0.5)]"
+                                                                            className={`h-full transition-all duration-500 ${pct < 20 ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : "bg-white shadow-[0_0_10px_rgba(255,255,255,0.4)]"
                                                                                 }`}
                                                                             style={{ width: `${pct}%` }}
                                                                         />
@@ -476,7 +476,7 @@ export default function ClientPage() {
                                                             {currentUnit.spareParts.map((part, idx) => (
                                                                 <div
                                                                     key={part.productId || idx}
-                                                                    className="flex items-center gap-2 rounded-xl border border-white/20 bg-black/50 px-3 py-1.5 text-xs text-zinc-200 shadow-sm"
+                                                                    className="flex items-center gap-2 rounded-xl border border-white/20 bg-black/60 px-3 py-1.5 text-xs text-zinc-200 shadow-sm"
                                                                 >
                                                                     <span className="font-bold text-white">{part.name}</span>
                                                                     {part.lifespanDays && (
@@ -487,7 +487,7 @@ export default function ClientPage() {
                                                                     {part.productId && (
                                                                         <a
                                                                             href={`/store/products/${part.productId}`}
-                                                                            className="ml-1 text-[10px] font-extrabold text-fuchsia-400 hover:underline"
+                                                                            className="ml-1 text-[10px] font-extrabold text-zinc-300 hover:text-white underline"
                                                                         >
                                                                             Ver en tienda →
                                                                         </a>
@@ -509,8 +509,8 @@ export default function ClientPage() {
                 )}
             </main>
 
-            {/* FOOTER OFICIAL PHIIT CENTRADO */}
-            <footer className="w-full border-t border-white/15 bg-black/60 backdrop-blur-xl px-6 py-6 text-xs text-zinc-400 relative z-10">
+            {/* FOOTER OFICIAL PHIIT CENTRADO EN MONOCROMO */}
+            <footer className="w-full border-t border-white/15 bg-black/70 backdrop-blur-xl px-6 py-6 text-xs text-zinc-400 relative z-10">
                 <div className="mx-auto flex max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-center sm:text-left">
                     <div className="space-y-0.5">
                         <p className="font-black text-white uppercase tracking-widest text-[11px]">PHIIT Equipments</p>
@@ -519,7 +519,7 @@ export default function ClientPage() {
                                 href="https://www.instagram.com/phiit_equipments/"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="hover:text-fuchsia-400 transition-colors text-[11px] font-semibold"
+                                className="hover:text-white transition-colors text-[11px] font-semibold"
                             >
                                 Instagram (@phiit_equipments)
                             </a>
@@ -527,8 +527,8 @@ export default function ClientPage() {
                     </div>
                     <div className="space-y-0.5 sm:text-right">
                         <p className="font-black text-white uppercase tracking-widest text-[11px]">Soporte Técnico</p>
-                        <a href="mailto:soporte@briefplataforma.com" className="hover:text-fuchsia-400 transition-colors underline underline-offset-4 text-[11px]">
-                            soporte@briefplataforma.com
+                        <a href="mailto:contact@phiit-equipments.com" className="hover:text-white transition-colors underline underline-offset-4 text-[11px]">
+                            contact@phiit-equipments.com
                         </a>
                     </div>
                 </div>

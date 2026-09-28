@@ -46,19 +46,16 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
 
         const cleanUrl = url.trim()
 
-        // Enlace externo completo (http:// o https://) -> Nueva pestaña
         if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
             window.open(cleanUrl, "_blank", "noopener,noreferrer")
             return
         }
 
-        // Enlace externo sin protocolo (ej: "google.com" o "midominio.com/descuentos") -> Nueva pestaña
         if (cleanUrl.includes(".") && !cleanUrl.startsWith("/")) {
             window.open(`https://${cleanUrl}`, "_blank", "noopener,noreferrer")
             return
         }
 
-        // Ruta interna de la app -> Misma pestaña con router.push
         const internalPath = cleanUrl.startsWith("/") ? cleanUrl : `/${cleanUrl}`
         router.push(internalPath)
     }
@@ -83,7 +80,6 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
         fetchNotifications()
     }, [])
 
-    // Al hacer click en un ítem, lo marcamos leído y abrimos la ventana emergente
     const handleSelectNotification = async (notification: Notification) => {
         setIsNotifOpen(false)
         setActiveModalNotif(notification)
@@ -123,44 +119,56 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
 
     return (
         <>
-            <nav className="sticky top-0 z-50 w-full border-b border-white/15 bg-black/50 px-6 py-3.5 backdrop-blur-2xl select-none text-white transition-all">
-                <div className="mx-auto flex max-w-7xl items-center justify-between md:grid md:grid-cols-3">
+            <nav className="sticky top-0 z-50 w-full border-b border-white/15 bg-black/50 px-4 sm:px-6 py-2.5 backdrop-blur-2xl select-none text-white transition-all">
+                {/* Cuadrícula balanceada de 3 columnas para centrado exacto */}
+                <div className="mx-auto grid grid-cols-3 max-w-7xl items-center">
 
-                    <div className="hidden md:block" />
+                    {/* Columna Izquierda (Espaciador balanceador) */}
+                    <div className="flex items-center justify-start" />
 
-                    {/* Logo Central */}
-                    <div className="flex justify-start md:justify-center">
+                    {/* Columna Central: LOGO 100% CENTRADO */}
+                    <div className="flex justify-center items-center">
                         <Link
                             href={isAdmin ? "/admin" : "/"}
-                            className="group flex items-center gap-3 transition-transform duration-200 active:scale-[0.98]"
+                            className="group flex items-center gap-2.5 transition-transform duration-200 active:scale-[0.98]"
                         >
                             <img
                                 src="/uploads/BLACK.jpeg"
                                 alt="PHIIT Equipments Logo"
                                 className={`h-9 w-9 rounded-xl object-cover border border-white/20 shadow-md transition-colors ${hoverLogoBorder}`}
                             />
-                            <span className="text-base font-black uppercase tracking-widest text-white">
-                                PHIIT <span className={`font-light text-zinc-400 transition-colors ${hoverLogoText}`}>EQUIPMENTS</span>
-                            </span>
+
+                            {/* Bloque Tipográfico Apilado con Ancho Justificado */}
+                            <div className="inline-flex flex-col justify-center leading-none w-max">
+                                <span className="text-lg font-black uppercase tracking-wider text-white whitespace-nowrap">
+                                    PHIIT
+                                </span>
+                                <span
+                                    style={{ textAlignLast: "justify" }}
+                                    className={`text-[7px] font-bold uppercase text-zinc-400 transition-colors w-full block ${hoverLogoText}`}
+                                >
+                                    EQUIPMENTS
+                                </span>
+                            </div>
                         </Link>
                     </div>
 
-                    {/* Acciones Derecha */}
-                    <div className="relative flex items-center justify-end gap-3">
+                    {/* Columna Derecha: ACCIONES Y PERFIL */}
+                    <div className="relative flex items-center justify-end gap-2.5 sm:gap-3">
 
-                        {/* SECCIÓN NOTIFICACIONES */}
+                        {/* NOTIFICACIONES */}
                         <div className="relative">
                             {isAdmin ? (
                                 <Link
                                     href="/admin/notifications"
-                                    className={`relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-all hover:bg-white/10 active:scale-95 shadow-sm ${hoverAvatarBorder}`}
+                                    className={`relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-all hover:bg-white/10 active:scale-95 shadow-sm ${hoverAvatarBorder}`}
                                     title="Gestión de Notificaciones"
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5 text-zinc-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4 sm:h-5 sm:w-5 text-zinc-300">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a2.37 2.37 0 0 1-4.286 0M11.062 3.821A12.274 12.274 0 0 1 12 3.75c.316 0 .631.016.938.071a8.25 8.25 0 0 1 6.082 8.012v2.293c0 .351.139.687.387.935l1.326 1.326c.72.72.213 1.943-.804 1.943H4.07c-1.017 0-1.524-1.223-.804-1.943l1.326-1.326c.248-.248.387-.584.387-.935v-2.293a8.25 8.25 0 0 1 6.082-8.012Z" />
                                     </svg>
                                     {unreadCount > 0 && (
-                                        <span className={`absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md ${badgeBg}`}>
+                                        <span className={`absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full text-[9px] sm:text-[10px] font-black shadow-md ${badgeBg}`}>
                                             {unreadCount > 9 ? "9+" : unreadCount}
                                         </span>
                                     )}
@@ -171,13 +179,13 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                                         setIsNotifOpen(!isNotifOpen)
                                         setIsDropdownOpen(false)
                                     }}
-                                    className={`relative flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-all hover:bg-white/10 active:scale-95 shadow-sm ${hoverAvatarBorder}`}
+                                    className={`relative flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-all hover:bg-white/10 active:scale-95 shadow-sm ${hoverAvatarBorder}`}
                                 >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5 text-zinc-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4 sm:h-5 sm:w-5 text-zinc-300">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a2.37 2.37 0 0 1-4.286 0M11.062 3.821A12.274 12.274 0 0 1 12 3.75c.316 0 .631.016.938.071a8.25 8.25 0 0 1 6.082 8.012v2.293c0 .351.139.687.387.935l1.326 1.326c.72.72.213 1.943-.804 1.943H4.07c-1.017 0-1.524-1.223-.804-1.943l1.326-1.326c.248-.248.387-.584.387-.935v-2.293a8.25 8.25 0 0 1 6.082-8.012Z" />
                                     </svg>
                                     {unreadCount > 0 && (
-                                        <span className={`absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-black shadow-md ${badgeBg}`}>
+                                        <span className={`absolute -top-1 -right-1 flex h-4 w-4 sm:h-5 sm:w-5 items-center justify-center rounded-full text-[9px] sm:text-[10px] font-black shadow-md ${badgeBg}`}>
                                             {unreadCount > 9 ? "9+" : unreadCount}
                                         </span>
                                     )}
@@ -249,12 +257,12 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                                     setIsDropdownOpen(!isDropdownOpen)
                                     setIsNotifOpen(false)
                                 }}
-                                className={`flex h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-all hover:bg-white/10 active:scale-95 overflow-hidden shadow-sm ${hoverAvatarBorder}`}
+                                className={`flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-white/20 bg-white/5 transition-all hover:bg-white/10 active:scale-95 overflow-hidden shadow-sm ${hoverAvatarBorder}`}
                             >
                                 {profilePicture ? (
                                     <img src={profilePicture} alt="Foto de perfil" className="h-full w-full object-cover" />
                                 ) : (
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5 text-zinc-300">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4 sm:h-5 sm:w-5 text-zinc-300">
                                         <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                                     </svg>
                                 )}
@@ -303,7 +311,6 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
                     <div className="relative w-full max-w-lg rounded-3xl border border-white/20 bg-zinc-950 p-6 md:p-8 shadow-2xl animate-in zoom-in-95 duration-200">
 
-                        {/* Botón de Cierre X */}
                         <button
                             onClick={() => setActiveModalNotif(null)}
                             className="absolute right-5 top-5 flex h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-zinc-400 transition-all hover:bg-white/10 hover:text-white cursor-pointer"
@@ -313,7 +320,6 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                             </svg>
                         </button>
 
-                        {/* Encabezado */}
                         <div className="mb-4 pr-8">
                             <span className="inline-block rounded-md bg-fuchsia-500/10 border border-fuchsia-500/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-fuchsia-400 mb-2">
                                 {activeModalNotif.type}
@@ -326,14 +332,12 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                             </p>
                         </div>
 
-                        {/* Mensaje Completo */}
                         <div className="max-h-60 overflow-y-auto pr-2 custom-scrollbar border-t border-b border-white/10 py-4 my-4">
                             <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
                                 {activeModalNotif.message}
                             </p>
                         </div>
 
-                        {/* Acciones del Modal */}
                         <div className="flex items-center justify-end gap-3 pt-2">
                             {activeModalNotif.link && (
                                 <button

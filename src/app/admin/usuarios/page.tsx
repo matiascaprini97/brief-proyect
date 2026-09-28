@@ -291,19 +291,19 @@ export default function AdminUsuariosPage() {
         <div className="flex min-h-screen flex-col bg-zinc-950 text-zinc-100 antialiased font-sans selection:bg-lime-400 selection:text-black">
             <Navbar isAdmin={true} profilePicture={profilePicture} />
 
-            <main className="flex-1 mx-auto w-full max-w-5xl px-6 py-12">
+            <main className="flex-1 mx-auto w-full max-w-5xl px-4 md:px-6 py-6 md:py-12">
                 <Link
                     href="/admin"
-                    className="text-xs font-semibold text-zinc-400 hover:text-lime-400 flex items-center gap-1.5 mb-8 transition-colors w-fit group"
+                    className="text-xs font-semibold text-zinc-400 hover:text-lime-400 flex items-center gap-1.5 mb-6 md:mb-8 transition-colors w-fit group"
                 >
                     <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Volver al Panel
                 </Link>
 
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 md:mb-8">
                     <div className="space-y-1">
                         <div className="flex items-center gap-2">
                             <span className="h-2 w-2 rounded-full bg-lime-400 animate-pulse" />
-                            <h1 className="text-2xl font-bold tracking-tight text-white uppercase">Control de Usuarios</h1>
+                            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white uppercase">Control de Usuarios</h1>
                         </div>
                         <p className="text-xs text-zinc-400">Gestioná los accesos de clientes y administradores de PHIIT Equipments.</p>
                     </div>
@@ -311,14 +311,14 @@ export default function AdminUsuariosPage() {
                     {selectedIds.length > 0 ? (
                         <button
                             onClick={handleBulkDelete}
-                            className="bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-500/20 transition-all shadow-lg shadow-red-500/5 flex items-center gap-2 self-start md:self-center"
+                            className="bg-red-500/10 text-red-400 border border-red-500/30 text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-500/20 transition-all shadow-lg shadow-red-500/5 flex items-center gap-2 w-full md:w-auto justify-center"
                         >
                             <span>🗑️</span> Eliminar Seleccionados ({selectedIds.length})
                         </button>
                     ) : (
                         <button
                             onClick={handleOpenCreateModal}
-                            className="bg-lime-400 hover:bg-lime-300 text-black text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-lime-400/10 hover:shadow-lime-400/20 active:scale-95 self-start md:self-center flex items-center gap-1.5"
+                            className="bg-lime-400 hover:bg-lime-300 text-black text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-lime-400/10 hover:shadow-lime-400/20 active:scale-95 w-full md:w-auto flex items-center justify-center gap-1.5"
                         >
                             <span className="text-sm font-black">+</span> Registrar Usuario
                         </button>
@@ -344,8 +344,104 @@ export default function AdminUsuariosPage() {
                     )}
                 </div>
 
-                {/* TABLA ESTILO DARK GLASSMORPHISM */}
-                <div className="border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-900/50 backdrop-blur-md shadow-2xl">
+                {/* === VISTA MOBILE: TARJETAS (SIN SCROLL LATERAL) === */}
+                <div className="block md:hidden space-y-3">
+                    {/* Control de Selección Masiva en Celulares */}
+                    {filteredAndSortedUsers.length > 0 && (
+                        <div className="flex items-center justify-between px-3 py-2 bg-zinc-900/80 border border-zinc-800/80 rounded-xl text-xs text-zinc-400">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                                <input
+                                    type="checkbox"
+                                    className="rounded border-zinc-700 bg-zinc-800 text-lime-400 focus:ring-lime-400/50 cursor-pointer w-4 h-4 accent-lime-400"
+                                    checked={filteredAndSortedUsers.length > 0 && selectedIds.length === filteredAndSortedUsers.length}
+                                    onChange={handleSelectAll}
+                                />
+                                <span className="font-medium text-zinc-300">Seleccionar todos ({filteredAndSortedUsers.length})</span>
+                            </label>
+                            {selectedIds.length > 0 && (
+                                <span className="text-[11px] text-lime-400 font-bold">{selectedIds.length} selec.</span>
+                            )}
+                        </div>
+                    )}
+
+                    {loading ? (
+                        <div className="p-8 text-center text-zinc-500 text-xs font-medium bg-zinc-900/50 border border-zinc-800 rounded-2xl">
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-5 h-5 border-2 border-lime-400 border-t-transparent rounded-full animate-spin" />
+                                Cargando usuarios...
+                            </div>
+                        </div>
+                    ) : filteredAndSortedUsers.length === 0 ? (
+                        <div className="p-8 text-center text-zinc-500 text-xs font-medium bg-zinc-900/50 border border-zinc-800 rounded-2xl">
+                            {searchQuery ? `No se encontraron usuarios para "${searchQuery}"` : "No hay usuarios registrados en PHIIT."}
+                        </div>
+                    ) : (
+                        filteredAndSortedUsers.map((user) => {
+                            const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ")
+                            const displayName = fullName || `@${user.username}`
+                            const isSelected = selectedIds.includes(user.id)
+
+                            return (
+                                <div
+                                    key={user.id}
+                                    className={`p-4 rounded-2xl border transition-all ${isSelected
+                                        ? "bg-lime-950/20 border-lime-500/40"
+                                        : "bg-zinc-900/50 border-zinc-800/80"
+                                        }`}
+                                >
+                                    <div className="flex items-start justify-between gap-3 mb-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <input
+                                                type="checkbox"
+                                                className="rounded border-zinc-700 bg-zinc-800 text-lime-400 focus:ring-lime-400/50 cursor-pointer w-4 h-4 accent-lime-400 shrink-0"
+                                                checked={isSelected}
+                                                onChange={() => handleSelectOne(user.id)}
+                                            />
+                                            <img
+                                                src={user.profilePicture || FALLBACK_AVATAR}
+                                                alt={displayName}
+                                                className="w-10 h-10 rounded-full object-cover border border-zinc-700/80 bg-zinc-800 shrink-0"
+                                                onError={(e) => {
+                                                    e.currentTarget.src = FALLBACK_AVATAR
+                                                }}
+                                            />
+                                            <div className="min-w-0">
+                                                <div className="font-semibold text-zinc-100 text-sm truncate">{displayName}</div>
+                                                <div className="text-[11px] text-zinc-500 font-mono truncate">@{user.username}</div>
+                                            </div>
+                                        </div>
+                                        <span
+                                            className={`text-[9px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md border shrink-0 ${user.role === "ADMIN"
+                                                ? "bg-lime-400/10 text-lime-400 border-lime-500/30"
+                                                : "bg-zinc-800 text-zinc-300 border-zinc-700"
+                                                }`}
+                                        >
+                                            {user.role}
+                                        </span>
+                                    </div>
+
+                                    <div className="flex items-center justify-between pt-3 border-t border-zinc-800/60 text-xs">
+                                        <div className="space-y-0.5 min-w-0 pr-2">
+                                            <p className="text-zinc-400 font-mono text-[11px] truncate">{user.email}</p>
+                                            <p className="text-[10px] text-zinc-600 font-mono">
+                                                Alta: {new Date(user.createdAt).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={() => handleOpenEditModal(user)}
+                                            className="bg-lime-400/10 hover:bg-lime-400/20 text-lime-400 border border-lime-500/30 px-3 py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 active:scale-95"
+                                        >
+                                            Gestionar
+                                        </button>
+                                    </div>
+                                </div>
+                            )
+                        })
+                    )}
+                </div>
+
+                {/* === VISTA DESKTOP: TABLA === */}
+                <div className="hidden md:block border border-zinc-800/80 rounded-2xl overflow-hidden bg-zinc-900/50 backdrop-blur-md shadow-2xl">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-zinc-900/90 border-b border-zinc-800/80 text-[10px] uppercase tracking-wider font-bold text-zinc-400">

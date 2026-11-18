@@ -8,12 +8,12 @@ const FROM_EMAIL = "contact@phiit-equipments.com"
 export async function sendWelcomeEmail(to: string, username: string, tempPass: string) {
   try {
     const { data, error } = await resend.emails.send({
-      from: `PHiiT <${FROM_EMAIL}>`,
+      from: `PHIIT <${FROM_EMAIL}>`,
       to,
-      subject: "¡Bienvenido a PHiiT!",
+      subject: "¡Bienvenido a PHIIT!",
       html: `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333; line-height: 1.6;">
-          <h2 style="color: #111; margin-bottom: 20px;">¡Bienvenido a PHiiT! 👋</h2>
+          <h2 style="color: #111; margin-bottom: 20px;">¡Bienvenido a PHIIT! 👋</h2>
           
           <p>Desde ahora vas a tener acceso a toda la información de tus equipos en un solo lugar: manual de uso, garantía, documentación de compra y seguimiento de cada reformer.</p>
 
@@ -25,7 +25,7 @@ export async function sendWelcomeEmail(to: string, username: string, tempPass: s
             <p style="margin: 0;"><strong>Contraseña temporal:</strong> ${tempPass}</p>
           </div>
 
-          <p><strong>Gracias por elegir PHiiT.</strong></p>
+          <p><strong>Gracias por elegir PHIIT.</strong></p>
 
           <hr style="border: none; border-top: 1px solid #e5e7eb; margin: 24px 0;" />
           <p style="font-size: 13px; color: #6b7280; margin: 0;">

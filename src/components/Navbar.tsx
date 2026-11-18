@@ -33,12 +33,12 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
     const [unreadCount, setUnreadCount] = useState<number>(0)
     const [loadingNotifs, setLoadingNotifs] = useState<boolean>(false)
 
-    // Estilos dinámicos
-    const hoverLogoBorder = isAdmin ? "group-hover:border-lime-400" : "group-hover:border-fuchsia-500"
-    const hoverLogoText = isAdmin ? "group-hover:text-lime-400" : "group-hover:text-fuchsia-400"
-    const hoverAvatarBorder = isAdmin ? "hover:border-lime-400/50" : "hover:border-fuchsia-500/50"
-    const hoverItemText = isAdmin ? "hover:text-lime-400" : "hover:text-fuchsia-400"
-    const badgeBg = isAdmin ? "bg-lime-400 text-black" : "bg-fuchsia-500 text-white"
+    // Estilos dinámicos (Admin: lime / Cliente: monocromo blanco-zinc)
+    const hoverLogoBorder = isAdmin ? "group-hover:border-lime-400" : "group-hover:border-white"
+    const hoverLogoText = isAdmin ? "group-hover:text-lime-400" : "group-hover:text-white"
+    const hoverAvatarBorder = isAdmin ? "hover:border-lime-400/50" : "hover:border-white/60"
+    const hoverItemText = isAdmin ? "hover:text-lime-400" : "hover:text-white"
+    const badgeBg = isAdmin ? "bg-lime-400 text-black" : "bg-white text-black"
 
     // Helper para manejar redirecciones internas y externas
     const handleNavigate = (url: string) => {
@@ -192,17 +192,17 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                                 </button>
                             )}
 
-                            {/* DESPLEGABLE CLIENTE */}
+                            {/* DESPLEGABLE NOTIFICACIONES CLIENTE */}
                             {!isAdmin && isNotifOpen && (
                                 <>
                                     <div className="fixed inset-0 z-10" onClick={() => setIsNotifOpen(false)} />
-                                    <div className="absolute right-0 top-12 z-20 w-80 sm:w-96 rounded-2xl border border-white/20 bg-black/90 p-4 backdrop-blur-2xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
+                                    <div className="absolute right-0 top-12 z-20 w-80 sm:w-96 rounded-2xl border border-white/20 bg-black/95 p-4 backdrop-blur-2xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
                                         <div className="flex items-center justify-between border-b border-white/15 pb-3 mb-3">
                                             <h3 className="text-xs font-black uppercase tracking-widest text-white">Notificaciones</h3>
                                             {unreadCount > 0 && (
                                                 <button
                                                     onClick={handleMarkAllAsRead}
-                                                    className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-400 hover:text-fuchsia-300 transition-colors cursor-pointer"
+                                                    className="text-[10px] font-bold uppercase tracking-wider text-zinc-300 hover:text-white transition-colors cursor-pointer underline underline-offset-4"
                                                 >
                                                     Marcar leídas
                                                 </button>
@@ -220,15 +220,15 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                                                         key={n.id}
                                                         onClick={() => handleSelectNotification(n)}
                                                         className={`group relative flex flex-col gap-1 rounded-xl p-3 text-left transition-all cursor-pointer border ${!n.isRead
-                                                            ? "bg-fuchsia-500/10 border-fuchsia-500/30 hover:bg-fuchsia-500/20"
+                                                            ? "bg-white/10 border-white/30 hover:bg-white/15"
                                                             : "bg-white/5 border-white/10 hover:bg-white/10"
                                                             }`}
                                                     >
                                                         <div className="flex items-center justify-between">
-                                                            <span className="text-xs font-bold text-white group-hover:text-fuchsia-300 transition-colors">
+                                                            <span className="text-xs font-bold text-white">
                                                                 {n.title}
                                                             </span>
-                                                            {!n.isRead && <span className="h-2 w-2 rounded-full bg-fuchsia-500" />}
+                                                            {!n.isRead && <span className="h-2 w-2 rounded-full bg-white" />}
                                                         </div>
                                                         <p className="text-xs text-zinc-300 line-clamp-2 leading-relaxed">
                                                             {n.message}
@@ -250,7 +250,7 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                             )}
                         </div>
 
-                        {/* MENÚ DE PERFIL */}
+                        {/* MENÚ DE PERFIL Y DOCUMENTACIÓN */}
                         <div className="relative">
                             <button
                                 onClick={() => {
@@ -271,17 +271,51 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                             {isDropdownOpen && (
                                 <>
                                     <div className="fixed inset-0 z-10" onClick={() => setIsDropdownOpen(false)} />
-                                    <div className="absolute right-0 top-12 z-20 w-56 rounded-2xl border border-white/20 bg-black/80 p-2 backdrop-blur-2xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
+                                    <div className="absolute right-0 top-12 z-20 w-60 rounded-2xl border border-white/20 bg-black/90 p-2 backdrop-blur-2xl shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150">
                                         <Link
                                             href="/perfil"
                                             onClick={() => setIsDropdownOpen(false)}
                                             className={`flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-zinc-200 transition-all hover:bg-white/10 ${hoverItemText}`}
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 shrink-0">
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
                                             </svg>
                                             Editar Perfil
                                         </Link>
+
+                                        {/* DOCUMENTACIÓN PARA CLIENTES */}
+                                        {!isAdmin && (
+                                            <>
+                                                <div className="my-1.5 border-t border-white/15" />
+
+                                                <a
+                                                    href="/uploads/PHIIT_Reformer_PH1001_Manual_v3.pdf"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={() => setIsDropdownOpen(false)}
+                                                    className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-zinc-200 transition-all hover:bg-white/10 hover:text-white"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 shrink-0">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" />
+                                                    </svg>
+                                                    Manual de Uso
+                                                </a>
+
+                                                {/* Descomentar cuando cargues la Guía de Armado Rápido en /public/uploads/ */}
+                                                {/* <a
+                                                    href="/uploads/GUIA_ARMADO_RAPIDO.pdf"
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={() => setIsDropdownOpen(false)}
+                                                    className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-zinc-200 transition-all hover:bg-white/10 hover:text-white"
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 shrink-0">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.42 15.17 17.25 21A2.652 2.652 0 0 0 21 17.25l-5.877-5.877M11.42 15.17l2.496-3.03c.317-.384.74-.626 1.208-.766M11.42 15.17l-4.655 5.653a2.548 2.548 0 1 1-3.586-3.586l6.837-5.63m5.108-.233c.55-.164 1.163-.188 1.743-.14a4.5 4.5 0 0 0 4.486-6.336l-3.276 3.277a3.004 3.004 0 0 1-2.25-2.25l3.276-3.276a4.5 4.5 0 0 0-6.336 4.486c.091 1.076-.071 2.264-.904 2.95l-.102.085m-1.745 1.437L5.909 7.5H4.5L2.25 3.75l1.5-1.5L7.5 4.5v1.409l4.26 4.26m-1.745 1.437 1.745-1.437m6.615 8.206L15.75 15.75M4.867 19.125h.008v.008h-.008v-.008Z" />
+                                                    </svg>
+                                                    Guía de Armado
+                                                </a> */}
+                                            </>
+                                        )}
 
                                         <div className="my-1.5 border-t border-white/15" />
 
@@ -292,7 +326,7 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                                             }}
                                             className="flex w-full items-center gap-2.5 rounded-xl px-3.5 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-red-400 transition-all hover:bg-red-500/10 hover:text-red-300 cursor-pointer"
                                         >
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 shrink-0">
                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15m3 0 3-3m0 0-3-3m3 3H9" />
                                             </svg>
                                             Cerrar Sesión
@@ -321,7 +355,7 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                         </button>
 
                         <div className="mb-4 pr-8">
-                            <span className="inline-block rounded-md bg-fuchsia-500/10 border border-fuchsia-500/30 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-fuchsia-400 mb-2">
+                            <span className="inline-block rounded-md bg-white/10 border border-white/25 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-zinc-200 mb-2">
                                 {activeModalNotif.type}
                             </span>
                             <h2 className="text-lg font-black uppercase tracking-wide text-white">
@@ -346,7 +380,7 @@ export default function Navbar({ profilePicture, isAdmin = false }: NavbarProps)
                                         setActiveModalNotif(null)
                                         handleNavigate(url)
                                     }}
-                                    className="rounded-xl bg-fuchsia-500 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition-all hover:bg-fuchsia-400 cursor-pointer shadow-lg shadow-fuchsia-500/20"
+                                    className="rounded-xl bg-white px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-black transition-all hover:bg-zinc-200 cursor-pointer shadow-lg"
                                 >
                                     Ver Detalle
                                 </button>

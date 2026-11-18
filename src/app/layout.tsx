@@ -7,6 +7,16 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "PHIIT - Equipments",
   description: "Gestión digital de equipos mobile-first",
+  applicationName: "PHIIT Equipments",
+  appleWebApp: {
+    capable: true,
+    title: "PHIIT Equipments",
+    statusBarStyle: "black-translucent",
+  },
+  icons: {
+    icon: "/public/uploads/BLACK.jpeg",
+    apple: "/public/uploads/BLACK.jpeg",
+  },
 };
 
 export default function RootLayout({

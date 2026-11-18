@@ -23,6 +23,7 @@ export default function AdminNotificationsPage() {
     const [message, setMessage] = useState("")
     const [link, setLink] = useState("")
     const [type, setType] = useState<"INFO" | "SUCCESS" | "WARNING" | "SYSTEM">("INFO")
+    const [sendEmail, setSendEmail] = useState(false)
 
     const [loading, setLoading] = useState(false)
     const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null)
@@ -63,6 +64,7 @@ export default function AdminNotificationsPage() {
                     message,
                     link: link || undefined,
                     type,
+                    sendEmail,
                 }),
             })
 
@@ -71,7 +73,6 @@ export default function AdminNotificationsPage() {
 
             setFeedback({ type: "success", text: `${data.message} Redirigiendo al inicio...` })
 
-            // Redirigir al inicio de admin tras crear la notificación
             setTimeout(() => {
                 router.push("/admin")
             }, 1200)
@@ -110,8 +111,8 @@ export default function AdminNotificationsPage() {
 
                 {feedback && (
                     <div className={`mb-6 rounded-xl border p-4 text-xs font-bold ${feedback.type === "success"
-                            ? "border-lime-500/30 bg-lime-500/10 text-lime-400"
-                            : "border-red-500/30 bg-red-500/10 text-red-400"
+                        ? "border-lime-500/30 bg-lime-500/10 text-lime-400"
+                        : "border-red-500/30 bg-red-500/10 text-red-400"
                         }`}>
                         {feedback.text}
                     </div>
@@ -194,6 +195,24 @@ export default function AdminNotificationsPage() {
                             className="w-full rounded-xl border border-white/20 bg-zinc-900/80 px-4 py-3 text-sm text-white focus:border-lime-400 focus:outline-none"
                         />
                     </div>
+
+                    {/* OPCIÓN DE ENVÍO POR EMAIL */}
+                    <label className="flex items-center gap-3 rounded-xl border border-white/15 bg-zinc-900/60 p-4 cursor-pointer hover:border-lime-400/50 transition-colors select-none">
+                        <input
+                            type="checkbox"
+                            checked={sendEmail}
+                            onChange={(e) => setSendEmail(e.target.checked)}
+                            className="h-4 w-4 rounded border-zinc-700 bg-zinc-800 text-lime-400 accent-lime-400 focus:ring-lime-400/50 cursor-pointer"
+                        />
+                        <div>
+                            <span className="block text-xs font-bold uppercase tracking-wider text-white">
+                                Enviar también por correo electrónico
+                            </span>
+                            <span className="block text-[11px] text-zinc-400">
+                                Los usuarios seleccionados recibirán una copia de este aviso en su email registrado.
+                            </span>
+                        </div>
+                    </label>
 
                     <button
                         type="submit"

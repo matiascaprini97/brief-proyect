@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/prisma";
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 async function verifyAdmin() {
     const cookieStore = await cookies();
@@ -45,7 +48,7 @@ export async function GET() {
     }
 }
 
-// POST: Crear y enviar notificaciones
+// POST: Crear y enviar notificaciones (con soporte opcional de envío por Email)
 export async function POST(req: Request) {
     try {
         const admin = await verifyAdmin();
@@ -54,42 +57,36 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json();
-        const { target, targetUserId, title, message, link, type } = body;
+        const { target, targetUserId, title, message, link, type, sendEmail } = body;
 
         if (!title || !message) {
             return NextResponse.json({ error: "Título y mensaje son obligatorios" }, { status: 400 });
         }
 
+        let targetUsers: { id: string; email: string | null }[] = [];
+
         if (target === "USER" && targetUserId) {
-            const notification = await prisma.notification.create({
-                data: {
-                    userId: targetUserId,
-                    title,
-                    message,
-                    link: link || null,
-                    type: type || "INFO",
-                },
+            const foundUser = await prisma.user.findUnique({
+                where: { id: targetUserId },
+                select: { id: true, email: true }
             });
-            return NextResponse.json({ message: "Notificación enviada con éxito", count: 1, notification });
-        }
-
-        let targetUserIds: { id: string }[] = [];
-
-        if (target === "CLIENTS") {
-            targetUserIds = await prisma.user.findMany({ where: { role: "CLIENT" }, select: { id: true } });
+            if (foundUser) targetUsers = [foundUser];
+        } else if (target === "CLIENTS") {
+            targetUsers = await prisma.user.findMany({ where: { role: "CLIENT" }, select: { id: true, email: true } });
         } else if (target === "ADMINS") {
-            targetUserIds = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true } });
+            targetUsers = await prisma.user.findMany({ where: { role: "ADMIN" }, select: { id: true, email: true } });
         } else if (target === "ALL") {
-            targetUserIds = await prisma.user.findMany({ select: { id: true } });
+            targetUsers = await prisma.user.findMany({ select: { id: true, email: true } });
         } else {
             return NextResponse.json({ error: "Objetivo inválido" }, { status: 400 });
         }
 
-        if (targetUserIds.length === 0) {
+        if (targetUsers.length === 0) {
             return NextResponse.json({ message: "No se encontraron destinatarios." });
         }
 
-        const notificationsData = targetUserIds.map((u) => ({
+        // 1. Crear las notificaciones internas en base de datos
+        const notificationsData = targetUsers.map((u) => ({
             userId: u.id,
             title,
             message,
@@ -99,8 +96,36 @@ export async function POST(req: Request) {
 
         const result = await prisma.notification.createMany({ data: notificationsData });
 
+        // 2. Si el admin tildó la opción de enviar por email, disparamos Resend
+        if (sendEmail) {
+            const emailPromises = targetUsers
+                .filter((u) => u.email) // Solo usuarios con email registrado
+                .map((u) => {
+                    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://phiit-equipments.com";
+                    const fullLink = link ? (link.startsWith("http") ? link : `${appUrl}${link.startsWith("/") ? link : `/${link}`}`) : appUrl;
+
+                    return resend.emails.send({
+                        from: "PHIIT Equipments <onboarding@resend.dev>", // Cambiar por tu dominio verificado en Resend cuando esté listo
+                        to: u.email!,
+                        subject: `[PHIIT] ${title}`,
+                        html: `
+                            <div style="background-color: #09090b; color: #ffffff; padding: 30px; font-family: sans-serif; border-radius: 12px;">
+                                <h2 style="color: #a3e635; text-transform: uppercase; font-size: 18px; margin-bottom: 15px;">${title}</h2>
+                                <p style="color: #d4d4d8; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${message}</p>
+                                ${link ? `<div style="margin-top: 25px;"><a href="${fullLink}" style="background-color: #a3e635; color: #000000; padding: 10px 20px; font-weight: bold; text-decoration: none; border-radius: 8px; font-size: 12px; display: inline-block; text-transform: uppercase;">Ver Detalle en la App</a></div>` : ''}
+                                <hr style="border: none; border-top: 1px solid #27272a; margin: 30px 0;" />
+                                <p style="color: #71717a; font-size: 11px;">PHIIT Equipments - Plataforma de Gestión Técnica</p>
+                            </div>
+                        `,
+                    });
+                });
+
+            // Ejecutamos todos los envíos de correo en segundo plano/paralelo
+            await Promise.allSettled(emailPromises);
+        }
+
         return NextResponse.json({
-            message: `Notificación enviada a ${result.count} usuario(s).`,
+            message: `Notificación enviada a ${result.count} usuario(s)${sendEmail ? " y correos encolados" : ""}.`,
             count: result.count,
         });
     } catch (error) {

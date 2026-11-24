@@ -3,6 +3,25 @@ import { prisma } from "@/lib/prisma"
 import { saveUploadedFile } from "@/lib/upload"
 import { sendWelcomeEmail, sendPurchaseConfirmationEmail } from "@/lib/mail"
 
+function parseStartDate(rawDate: string | null): Date {
+    if (!rawDate || !rawDate.trim()) {
+        return new Date()
+    }
+
+    const trimmed = rawDate.trim()
+    // Si viene como YYYY-MM-DD desde un <input type="date">, fijamos mediodía UTC
+    // para evitar que cambie de día por diferencias de huso horario
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const parsed = new Date(`${trimmed}T12:00:00.000Z`)
+        if (!Number.isNaN(parsed.getTime())) {
+            return parsed
+        }
+    }
+
+    const fallbackParsed = new Date(trimmed)
+    return Number.isNaN(fallbackParsed.getTime()) ? new Date() : fallbackParsed
+}
+
 // GET: Obtener todas las ventas con sus relaciones
 export async function GET() {
     try {
@@ -36,6 +55,7 @@ export async function POST(req: NextRequest) {
         const firstName = (formData.get("firstName") as string) || ""
         const lastName = (formData.get("lastName") as string) || ""
         const phoneNumber = (formData.get("phoneNumber") as string) || ""
+        const startDateRaw = formData.get("startDate") as string | null
         const itemsRaw = formData.get("items") as string
 
         // Archivos recibidos desde el formulario
@@ -48,6 +68,8 @@ export async function POST(req: NextRequest) {
                 { status: 400 }
             )
         }
+
+        const effectiveStartDate = parseStartDate(startDateRaw)
 
         let items: { productId: string; quantity: number }[] = []
         try {
@@ -106,7 +128,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 4. Crear los registros de ventas
+        // 4. Crear los registros de ventas con la fecha de inicio seleccionada
         const createdSales = []
 
         for (const item of items) {
@@ -132,6 +154,7 @@ export async function POST(req: NextRequest) {
                     data: {
                         userId: user.id,
                         productId: product.id,
+                        createdAt: effectiveStartDate,
                         invoiceUrl,
                         warrantyUrl,
                         trackedSpareParts: {
@@ -139,6 +162,7 @@ export async function POST(req: NextRequest) {
                                 name: spare.name,
                                 lifespanDays: spare.lifespanDays || spare.defaultLifespanDays || 180,
                                 spareProductId: spare.spareProductId || null,
+                                installedAt: effectiveStartDate,
                             })),
                         },
                     },

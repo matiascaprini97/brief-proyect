@@ -43,7 +43,6 @@ interface SelectedItem {
     searchQuery?: string
 }
 
-// Estructura agrupada para renderizar 1 tarjeta por transacción
 interface GroupedSale {
     groupId: string
     createdAt: string
@@ -53,6 +52,14 @@ interface GroupedSale {
     sales: Sale[]
     totalItems: number
     productSummary: { name: string; count: number }[]
+}
+
+function getTodayDateInputValue(): string {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, "0")
+    const day = String(now.getDate()).padStart(2, "0")
+    return `${year}-${month}-${day}`
 }
 
 export default function AdminVentasPage() {
@@ -72,6 +79,7 @@ export default function AdminVentasPage() {
     const [firstName, setFirstName] = useState("")
     const [lastName, setLastName] = useState("")
     const [phoneNumber, setPhoneNumber] = useState("")
+    const [startDate, setStartDate] = useState<string>(() => getTodayDateInputValue())
 
     const [selectedItems, setSelectedItems] = useState<SelectedItem[]>([
         { productId: "", quantity: 1, searchQuery: "" }
@@ -164,6 +172,7 @@ export default function AdminVentasPage() {
             formData.append("firstName", firstName)
             formData.append("lastName", lastName)
             formData.append("phoneNumber", phoneNumber)
+            formData.append("startDate", startDate)
 
             const itemsToSubmit = selectedItems.map(({ productId, quantity }) => ({ productId, quantity }))
             formData.append("items", JSON.stringify(itemsToSubmit))
@@ -241,6 +250,7 @@ export default function AdminVentasPage() {
         setFirstName("")
         setLastName("")
         setPhoneNumber("")
+        setStartDate(getTodayDateInputValue())
         setSelectedItems([{ productId: "", quantity: 1, searchQuery: "" }])
         setInvoiceFile(null)
         setWarrantyFile(null)
@@ -250,14 +260,17 @@ export default function AdminVentasPage() {
     const calculateLifespan = (installedAt: string, lifespanDays: number) => {
         const installDate = new Date(installedAt).getTime()
         const now = new Date().getTime()
-        const daysElapsed = Math.floor((now - installDate) / (1000 * 60 * 60 * 24))
-        const percentRemaining = Math.max(0, Math.round(100 - (daysElapsed / lifespanDays) * 100))
+        const rawDaysElapsed = Math.floor((now - installDate) / (1000 * 60 * 60 * 24))
+        const daysElapsed = Math.max(0, rawDaysElapsed)
+        const rawPercent = Math.round(100 - (rawDaysElapsed / lifespanDays) * 100)
+        const percentRemaining = Math.min(100, Math.max(0, rawPercent))
+        const isFutureStart = rawDaysElapsed < 0
 
         let color = "bg-lime-400 shadow-[0_0_10px_rgba(163,230,53,0.5)]"
         if (percentRemaining < 20) color = "bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.5)]"
         else if (percentRemaining < 50) color = "bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.5)]"
 
-        return { daysElapsed, percentRemaining, color }
+        return { daysElapsed, percentRemaining, color, isFutureStart }
     }
 
     // 1. AGRUPACIÓN DINÁMICA POR TRANSACCIÓN DE COMPRA
@@ -456,7 +469,7 @@ export default function AdminVentasPage() {
                                                     ))}
                                                 </div>
                                                 <div className="text-[11px] text-zinc-400">
-                                                    Fecha: {new Date(group.createdAt).toLocaleString()}
+                                                    Inicio garantía: {new Date(group.createdAt).toLocaleDateString()}
                                                 </div>
                                             </div>
 
@@ -543,7 +556,7 @@ export default function AdminVentasPage() {
                                                             ) : (
                                                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                                                                     {saleItem.trackedSpareParts?.map((part, pIdx) => {
-                                                                        const { daysElapsed, percentRemaining, color } = calculateLifespan(
+                                                                        const { daysElapsed, percentRemaining, color, isFutureStart } = calculateLifespan(
                                                                             part.installedAt,
                                                                             part.lifespanDays
                                                                         )
@@ -558,7 +571,11 @@ export default function AdminVentasPage() {
                                                                                     <div className={`h-full ${color}`} style={{ width: `${percentRemaining}%` }} />
                                                                                 </div>
                                                                                 <div className="flex justify-between items-center pt-1">
-                                                                                    <span className="text-[10px] text-zinc-500 font-mono">{daysElapsed}/{part.lifespanDays} d</span>
+                                                                                    <span className="text-[10px] text-zinc-500 font-mono">
+                                                                                        {isFutureStart
+                                                                                            ? `Inicia ${new Date(part.installedAt).toLocaleDateString()}`
+                                                                                            : `${daysElapsed}/${part.lifespanDays} d`}
+                                                                                    </span>
                                                                                     <button
                                                                                         onClick={() => handleResetPart(part.id)}
                                                                                         className="text-[10px] font-black uppercase text-lime-400 hover:underline"
@@ -677,17 +694,32 @@ export default function AdminVentasPage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-1.5">
-                                    <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
-                                        Teléfono (Opcional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        placeholder="+54 11 ..."
-                                        value={phoneNumber}
-                                        onChange={(e) => setPhoneNumber(e.target.value)}
-                                        className="w-full text-sm border border-white/10 bg-white/5 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium placeholder:text-zinc-600 transition-all"
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                                            Teléfono (Opcional)
+                                        </label>
+                                        <input
+                                            type="text"
+                                            placeholder="+54 11 ..."
+                                            value={phoneNumber}
+                                            onChange={(e) => setPhoneNumber(e.target.value)}
+                                            className="w-full text-sm border border-white/10 bg-white/5 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium placeholder:text-zinc-600 transition-all"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[11px] font-bold uppercase tracking-widest text-zinc-400">
+                                            Inicio Garantía / Vida Útil *
+                                        </label>
+                                        <input
+                                            type="date"
+                                            required
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className="w-full text-sm border border-white/10 bg-zinc-900 text-white px-4 py-3 rounded-xl focus:outline-none focus:border-lime-400 focus:ring-1 focus:ring-lime-400 font-medium [color-scheme:dark] transition-all"
+                                        />
+                                    </div>
                                 </div>
 
                                 {/* ARTÍCULOS */}

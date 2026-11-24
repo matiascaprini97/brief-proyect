@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 
 interface AdminNotification {
@@ -10,15 +10,35 @@ interface AdminNotification {
     type: string
     createdAt: string
     user: {
+        firstName?: string | null
+        lastName?: string | null
         username: string
         email: string
     }
+}
+
+interface SelectableUser {
+    id: string
+    firstName: string | null
+    lastName: string | null
+    username: string
+    email: string
+    role: "ADMIN" | "CLIENT"
+}
+
+function getUserFullName(user: { firstName?: string | null; lastName?: string | null; username?: string; email?: string }) {
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ").trim()
+    if (fullName) return fullName
+    return user.username || user.email || "Usuario"
 }
 
 export default function AdminNotificationsPage() {
     const router = useRouter()
     const [target, setTarget] = useState<"CLIENTS" | "ADMINS" | "ALL" | "USER">("CLIENTS")
     const [targetUserId, setTargetUserId] = useState("")
+    const [userSearch, setUserSearch] = useState("")
+    const [users, setUsers] = useState<SelectableUser[]>([])
+
     const [title, setTitle] = useState("")
     const [message, setMessage] = useState("")
     const [link, setLink] = useState("")
@@ -30,26 +50,49 @@ export default function AdminNotificationsPage() {
     const [sentNotifications, setSentNotifications] = useState<AdminNotification[]>([])
     const [loadingHistory, setLoadingHistory] = useState(true)
 
-    const fetchHistory = async () => {
+    const fetchHistoryAndUsers = async () => {
         try {
             const res = await fetch("/api/admin/notifications")
             if (res.ok) {
                 const data = await res.json()
                 setSentNotifications(data.notifications || [])
+                setUsers(data.users || [])
             }
         } catch (error) {
-            console.error("Error al cargar historial:", error)
+            console.error("Error al cargar historial y usuarios:", error)
         } finally {
             setLoadingHistory(false)
         }
     }
 
     useEffect(() => {
-        fetchHistory()
+        fetchHistoryAndUsers()
     }, [])
+
+    const filteredUsers = useMemo(() => {
+        const query = userSearch.trim().toLowerCase()
+        if (!query) return users
+
+        return users.filter((u) => {
+            const fullName = getUserFullName(u).toLowerCase()
+            const email = (u.email || "").toLowerCase()
+            const username = (u.username || "").toLowerCase()
+            return fullName.includes(query) || email.includes(query) || username.includes(query)
+        })
+    }, [users, userSearch])
+
+    const selectedUser = useMemo(
+        () => users.find((u) => u.id === targetUserId) || null,
+        [users, targetUserId]
+    )
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (target === "USER" && !targetUserId) {
+            setFeedback({ type: "error", text: "Seleccioná un usuario de la lista antes de enviar." })
+            return
+        }
+
         setLoading(true)
         setFeedback(null)
 
@@ -123,27 +166,64 @@ export default function AdminNotificationsPage() {
                         <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300 mb-2">Destinatarios</label>
                         <select
                             value={target}
-                            onChange={(e: any) => setTarget(e.target.value)}
+                            onChange={(e: any) => {
+                                const nextTarget = e.target.value
+                                setTarget(nextTarget)
+                                if (nextTarget !== "USER") {
+                                    setTargetUserId("")
+                                    setUserSearch("")
+                                }
+                            }}
                             className="w-full rounded-xl border border-white/20 bg-zinc-900/80 px-4 py-3 text-sm text-white focus:border-lime-400 focus:outline-none"
                         >
                             <option value="CLIENTS">Todos los Clientes</option>
                             <option value="ADMINS">Todos los Administradores</option>
                             <option value="ALL">Todos los Usuarios (Global)</option>
-                            <option value="USER">Usuario Específico (por ID)</option>
+                            <option value="USER">Usuario Específico</option>
                         </select>
                     </div>
 
                     {target === "USER" && (
-                        <div>
-                            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300 mb-2">ID del Usuario</label>
+                        <div className="space-y-2.5 rounded-xl border border-white/15 bg-zinc-900/50 p-4">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-300">
+                                Buscar y Seleccionar Usuario (Nombre y Apellido)
+                            </label>
+
                             <input
                                 type="text"
+                                placeholder="🔍 Buscar por nombre, apellido o email..."
+                                value={userSearch}
+                                onChange={(e) => setUserSearch(e.target.value)}
+                                className="w-full rounded-xl border border-white/20 bg-zinc-950/90 px-4 py-2.5 text-xs text-white focus:border-lime-400 focus:outline-none placeholder:text-zinc-500"
+                            />
+
+                            <select
                                 required
-                                placeholder="Ej: uuid-del-usuario"
                                 value={targetUserId}
                                 onChange={(e) => setTargetUserId(e.target.value)}
-                                className="w-full rounded-xl border border-white/20 bg-zinc-900/80 px-4 py-3 text-sm text-white focus:border-lime-400 focus:outline-none"
-                            />
+                                className="w-full rounded-xl border border-white/20 bg-zinc-950/90 px-4 py-3 text-sm text-white focus:border-lime-400 focus:outline-none"
+                            >
+                                <option value="">
+                                    {filteredUsers.length === 0
+                                        ? "No hay usuarios que coincidan con la búsqueda..."
+                                        : "Seleccionar usuario..."}
+                                </option>
+                                {filteredUsers.map((u) => {
+                                    const fullName = getUserFullName(u)
+                                    const roleTag = u.role === "ADMIN" ? "Admin" : "Cliente"
+                                    return (
+                                        <option key={u.id} value={u.id} className="bg-zinc-950 text-white">
+                                            {fullName} — {u.email} ({roleTag})
+                                        </option>
+                                    )
+                                })}
+                            </select>
+
+                            {selectedUser && (
+                                <p className="text-[11px] text-lime-400 font-medium">
+                                    Destinatario elegido: <span className="font-bold">{getUserFullName(selectedUser)}</span> ({selectedUser.email})
+                                </p>
+                            )}
                         </div>
                     )}
 
@@ -245,7 +325,7 @@ export default function AdminNotificationsPage() {
                                     </div>
                                     <p className="text-xs text-zinc-400 line-clamp-1">{item.message}</p>
                                     <p className="text-[10px] text-zinc-500">
-                                        Para: <span className="text-zinc-300 font-medium">{item.user?.username || "Usuario"}</span> ({new Date(item.createdAt).toLocaleString("es-AR")})
+                                        Para: <span className="text-zinc-300 font-medium">{getUserFullName(item.user)}</span> ({new Date(item.createdAt).toLocaleString("es-AR")})
                                     </p>
                                 </div>
                                 <button

@@ -23,7 +23,7 @@ async function verifyAdmin() {
     return user;
 }
 
-// GET: Historial de notificaciones enviadas para la vista Admin
+// GET: Historial de notificaciones enviadas + listado de usuarios para selector
 export async function GET() {
     try {
         const admin = await verifyAdmin();
@@ -31,17 +31,30 @@ export async function GET() {
             return NextResponse.json({ error: "Acceso denegado." }, { status: 403 });
         }
 
-        const notifications = await prisma.notification.findMany({
-            orderBy: { createdAt: "desc" },
-            take: 50,
-            include: {
-                user: {
-                    select: { username: true, email: true }
+        const [notifications, users] = await Promise.all([
+            prisma.notification.findMany({
+                orderBy: { createdAt: "desc" },
+                take: 50,
+                include: {
+                    user: {
+                        select: { firstName: true, lastName: true, username: true, email: true }
+                    }
                 }
-            }
-        });
+            }),
+            prisma.user.findMany({
+                orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { username: "asc" }],
+                select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    username: true,
+                    email: true,
+                    role: true,
+                }
+            })
+        ]);
 
-        return NextResponse.json({ notifications });
+        return NextResponse.json({ notifications, users });
     } catch (error) {
         console.error("❌ [API Admin Notifications GET]:", error);
         return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 });
@@ -65,12 +78,18 @@ export async function POST(req: Request) {
 
         let targetUsers: { id: string; email: string | null }[] = [];
 
-        if (target === "USER" && targetUserId) {
+        if (target === "USER") {
+            if (!targetUserId) {
+                return NextResponse.json({ error: "Debes seleccionar un usuario" }, { status: 400 });
+            }
             const foundUser = await prisma.user.findUnique({
                 where: { id: targetUserId },
                 select: { id: true, email: true }
             });
-            if (foundUser) targetUsers = [foundUser];
+            if (!foundUser) {
+                return NextResponse.json({ error: "El usuario seleccionado no existe" }, { status: 404 });
+            }
+            targetUsers = [foundUser];
         } else if (target === "CLIENTS") {
             targetUsers = await prisma.user.findMany({ where: { role: "CLIENT" }, select: { id: true, email: true } });
         } else if (target === "ADMINS") {
@@ -96,32 +115,50 @@ export async function POST(req: Request) {
 
         const result = await prisma.notification.createMany({ data: notificationsData });
 
-        // 2. Si el admin tildó la opción de enviar por email, disparamos Resend
+        // 2. Si el admin tildó la opción de enviar por email, disparamos Resend con diagnóstico
         if (sendEmail) {
-            const emailPromises = targetUsers
-                .filter((u) => u.email) // Solo usuarios con email registrado
-                .map((u) => {
-                    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://phiit-equipments.com";
-                    const fullLink = link ? (link.startsWith("http") ? link : `${appUrl}${link.startsWith("/") ? link : `/${link}`}`) : appUrl;
+            if (!process.env.RESEND_API_KEY) {
+                console.warn("⚠️ [Resend]: Falta RESEND_API_KEY en las variables de entorno.");
+            } else {
+                const recipientsWithEmail = targetUsers.filter((u) => Boolean(u.email));
+                console.log(`📧 [Resend]: Intentando enviar a ${recipientsWithEmail.length} destinatario(s)...`);
 
-                    return resend.emails.send({
-                        from: "PHIIT Equipments <onboarding@resend.dev>", // Cambiar por tu dominio verificado en Resend cuando esté listo
-                        to: u.email!,
-                        subject: `[PHIIT] ${title}`,
-                        html: `
-                            <div style="background-color: #09090b; color: #ffffff; padding: 30px; font-family: sans-serif; border-radius: 12px;">
-                                <h2 style="color: #a3e635; text-transform: uppercase; font-size: 18px; margin-bottom: 15px;">${title}</h2>
-                                <p style="color: #d4d4d8; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${message}</p>
-                                ${link ? `<div style="margin-top: 25px;"><a href="${fullLink}" style="background-color: #a3e635; color: #000000; padding: 10px 20px; font-weight: bold; text-decoration: none; border-radius: 8px; font-size: 12px; display: inline-block; text-transform: uppercase;">Ver Detalle en la App</a></div>` : ''}
-                                <hr style="border: none; border-top: 1px solid #27272a; margin: 30px 0;" />
-                                <p style="color: #71717a; font-size: 11px;">PHIIT Equipments - Plataforma de Gestión Técnica</p>
-                            </div>
-                        `,
-                    });
-                });
+                const appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://phiit-equipments.com";
+                const fromAddress = process.env.RESEND_FROM_EMAIL || "PHIIT Equipments <onboarding@resend.dev>";
 
-            // Ejecutamos todos los envíos de correo en segundo plano/paralelo
-            await Promise.allSettled(emailPromises);
+                const results = await Promise.allSettled(
+                    recipientsWithEmail.map(async (u) => {
+                        const fullLink = link
+                            ? (link.startsWith("http") ? link : `${appUrl}${link.startsWith("/") ? link : `/${link}`}`)
+                            : appUrl;
+
+                        const { data, error } = await resend.emails.send({
+                            from: fromAddress,
+                            to: u.email!,
+                            subject: `[PHIIT] ${title}`,
+                            html: `
+                                <div style="background-color: #09090b; color: #ffffff; padding: 30px; font-family: sans-serif; border-radius: 12px;">
+                                    <h2 style="color: #a3e635; text-transform: uppercase; font-size: 18px; margin-bottom: 15px;">${title}</h2>
+                                    <p style="color: #d4d4d8; font-size: 14px; line-height: 1.6; white-space: pre-wrap;">${message}</p>
+                                    ${link ? `<div style="margin-top: 25px;"><a href="${fullLink}" style="background-color: #a3e635; color: #000000; padding: 10px 20px; font-weight: bold; text-decoration: none; border-radius: 8px; font-size: 12px; display: inline-block; text-transform: uppercase;">Ver Detalle en la App</a></div>` : ''}
+                                    <hr style="border: none; border-top: 1px solid #27272a; margin: 30px 0;" />
+                                    <p style="color: #71717a; font-size: 11px;">PHIIT Equipments - Plataforma de Gestión Técnica</p>
+                                </div>
+                            `,
+                        });
+
+                        if (error) {
+                            console.error(`❌ [Resend] Error enviando a ${u.email}:`, error);
+                            return { email: u.email, ok: false, error };
+                        }
+
+                        console.log(`✅ [Resend] Enviado a ${u.email} (id: ${data?.id})`);
+                        return { email: u.email, ok: true, id: data?.id };
+                    })
+                );
+
+                console.log("📊 [Resend] Resumen de envíos:", results);
+            }
         }
 
         return NextResponse.json({
